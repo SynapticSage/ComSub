@@ -1,0 +1,5 @@
+import h5py
+
+data = h5py.File('example_workspace_of_structs.mat')
+print(data.keys())
+print(data['Event'][0].shape)
