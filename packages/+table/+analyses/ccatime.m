@@ -5,15 +5,20 @@ function resultTable = ccatime(Components_overall, varargin)
     addOptional(p, 'Option', struct(), @isstruct);
     addOptional(p, 'behavior', table(), @istable);
     addParameter(p, 'behaviorColumns', {}, @iscellstr);
+    addParameter(p, 'N', 3, @isnumeric); % Number of components to extract
     parse(p, varargin{:});
 
     efizz = p.Results.efizz;
     Option = p.Results.Option;
     behavior = p.Results.behavior;
     behaviorColumns = p.Results.behaviorColumns;
+    N = p.Results.N;
 
     % Initialize an empty table
     resultTable = table();
+
+    consts = option.constants;
+    directions = consts.directions;
 
     % Loop over all components
     for i = progress(1:size(Components_overall, 1), 'Title', 'CCA time')
@@ -26,12 +31,21 @@ function resultTable = ccatime(Components_overall, varargin)
             end
 
             % Extract the first 3 U x V components
-            U = cca.u(:, 1:3);
-            V = cca.v(:, 1:3);
+            U = cca.u(:, 1:N);
+            V = cca.v(:, 1:N);
+            pattern = Option.patternNames(j);
+            genH = Option.genH_name;
+            direction = directions(i);
+            pattern = repmat(pattern, size(U, 1), 1);
+            genH = repmat(genH, size(U, 1), 1);
+            direction = repmat(direction, size(U, 1), 1);
 
             % Create a table from the U and V data
             UVTable = array2table([U, V], 'VariableNames',...
-            {'U1', 'U2', 'U3', 'V1', 'V2', 'V3'});
+                {'U1', 'U2', 'U3', 'V1', 'V2', 'V3'});
+            strtable = array2table([pattern, genH, direction], 'VariableNames',...
+                {'pattern', 'genH', 'direction'});
+            UVTable = [UVTable, strtable];
 
             % Repeat the scalar fields to match the size of the U and V data
             scalarFields = structfun(@num2str,...
