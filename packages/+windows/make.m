@@ -1,4 +1,5 @@
-function [cellOfWindows, cutoff] = make(times, threshold, H, Option, varargin)
+function [cellOfWindows, cutoff, opposite_cutoff] = ...
+    make(times, threshold, H, Option, varargin)
 % H: m*n matrix - m is number times taken (aligned to times, same
 %    length as times) and n is the number of rhythms we are interested in
 %
@@ -48,18 +49,22 @@ assert(all(boolcheck==0) || all(boolcheck==1),...
 %% --------------------------
 [~,nPatterns] = size(H);
 cutoff = zeros(numel(threshold),nPatterns);
+opposite_cutoff = zeros(numel(threshold),nPatterns);
 
 % Compute quantile cutoffs either from H or another given variable
 for i = 1:nPatterns
      switch Opt.thresholdMethod
         case 'quantile'
-            if ~isempty(Opt.quantile)
+            if ~isempty(Opt.quantile) % USER DEFINED QUANTILE VECTOR
                 cutoff(:,i) = quantile(Opt.quantile(:,i),threshold);
-            else
+                opposite_cutoff(:,i) = quantile(Opt.quantile(:,i),1-threshold);
+            else % QUANTILE OF H
                 cutoff(:,i) = quantile(H(:,i),threshold);
+                opposite_cutoff(:,i) = quantile(H(:,i),1-threshold);
             end
         case 'raw'
             cutoff(:,i) = threshold;
+            opposite_cutoff(:,i) = nan;
         otherwise
             error('Invalid method')
     end
@@ -67,6 +72,8 @@ end
 
 upperOutlierCutoff = quantile(H, Opt.outlierQuantile(2));
 lowerOutlierCutoff = quantile(H, Opt.outlierQuantile(1));
+upperOutlierCutoffRepeat = repmat(upperOutlierCutoff, [size(H, 1), 1]);
+lowerOutlierCutoffRepeat = repmat(lowerOutlierCutoff, [size(H, 1), 1]);
 
 %% --------------------------------
 %% 2. Apply quantiles to the powers
@@ -80,17 +87,27 @@ assert(size(cutoff,1) == 1, "Cutoff must be a range (2 numbers) or a min or max 
 
 % Repeat the cutoff array to match size of H
 cutoffRepeat = repmat(cutoff, [size(H, 1), 1]);
-
-upperOutlierCutoffRepeat = repmat(upperOutlierCutoff, [size(H, 1), 1]);
-lowerOutlierCutoffRepeat = repmat(lowerOutlierCutoff, [size(H, 1), 1]);
+cutoffOppositeRepeat = repmat(opposite_cutoff, [size(H, 1), 1]);
 
 if is_cutoff_range
+    disp('selecting range')
     H_isPattern = (H >= cutoffRepeat(:,LOW)) & (H < cutoffRepeat(:,HIGH));
 else
-    if ~Opt.higherThanQuantile
+    if Opt.higherThanQuantile == 0 || Opt.higherThanQuantile == false
+        disp("selecting low " + threshold)
         H_isPattern = H < cutoffRepeat;
-    else
+    elseif Opt.higherThanQuantile == 1 || Opt.higherThanQuantile == true
+        disp("selecting high = " + threshold)
         H_isPattern = H >= cutoffRepeat;
+    elseif Opt.higherThanQuantile == -1
+        disp("selecting middle " + threshold + " " + opposite_threshold)
+        if opposite_cutoff(1) < cutoff(1)
+            H_isPattern = (H >= cutoffOppositeRepeat) & (H < cutoffRepeat);
+        else
+            H_isPattern = (H >= cutoffRepeat) & (H < cutoffOppositeRepeat);
+        end
+    else
+        error('Invalid higherThanQuantile value')
     end
 end
 
@@ -139,14 +156,16 @@ for pattern = 1:length(cutoff)
         correct_direction = false(size(derranges,1),1);
         for i = 1:size(derranges,1)
             % check if cumulative direction is positive 
-            if is_cutoff_range || Opt.higherThanQuantile
+            if is_cutoff_range || Opt.higherThanQuantile == true || Opt.higherThanQuantile == 1
                 if H(derranges(i,2),pattern) - H(derranges(i,1),pattern) > 0
                     correct_direction(i) = true;
                 end
-            else
+            elseif Opt.higherThanQuantile == false || Opt.higherThanQuantile == 0
                 if H(derranges(i,2),pattern) - H(derranges(i,1),pattern) < 0
                     correct_direction(i) = true;
                 end
+            else % more middle range windows, we're neither looking for positive or negative derivative
+                correct_direction = true(size(derranges,1),1);
             end
         end
         disp("Derivative mode for Pattern " + pattern)

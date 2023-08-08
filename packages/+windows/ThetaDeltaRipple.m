@@ -78,8 +78,8 @@ else
 end
 
 windows.countMessage(cellOfWindows, Option.patternNames,...
-    'message', 'initial window creation')
-
+                     'message', 'initial window creation')
+ 
 %%----------------------
 %% 2: EQUALIZE N OF WINDOWS
 %%----------------------
@@ -153,14 +153,53 @@ for pattern = 1:length(cellOfWindows)
     Hc_cellOfWindows{pattern} = curr;
 end
 
+% -------------------------------------------
+% If controls, then let's add a mid-pattern
+% -------------------------------------------
+keyboard
+midpattern = true;
+if midpattern
+    [cellOfWindows, cutoffs] = windows.make(Events.times, ...
+        Option.quantileToMakeWindows, Events.H(:,THETA:DELTA), Option,...
+        'positiveDerivativeCheck', true, ...
+        'outlierQuantile', Option.thetadelta_outlierQuantile,...
+        'higherThanQuantile', -1);
+    coherent_patterns = any(contains(Option.generateH, ["fromCoherence","fromWpli"]));
+    if coherent_patterns
+        [Hm_cellOfWindows(RIPPLE), Hm_cutoffs(RIPPLE)] = windows.make(...
+            Events.times,...
+            Option.quantileToMakeWindows, ...
+            Events.Hvals(:,RIPPLE),... 2023, rather than rip times with high coh (H), just high ripple coherence (Hvals)
+            Option,...
+            'quantile', Events.Hvals(:,RIPPLE),'higherThanQuantile', -1); 
+    end
+    % ----------------------------------
+    % Clean, Remove overalapping windows
+    % ----------------------------------
+    % clean up control windows: remove each control pattern's window's overlap
+    for pattern = 1:length(cellOfWindows)
+        curr = windows.removeOverlapsBetweenPattern(...
+            cell2mat(cellOfWindows(:,pattern)),... preserve control windows
+            cell2mat(Hm_cellOfWindows(:,pattern))); ... remove mid windows
+        Hm_cellOfWindows{pattern} = curr;
+        curr = windows.removeOverlapsBetweenPattern(...
+            cell2mat(Hc_cellOfWindows(:,pattern)),... preserve control windows
+            cell2mat(Hm_cellOfWindows(:,pattern))); ... remove mid windows
+        Hm_cellOfWindows{pattern} = curr;
+    end
+else
+    Hm_cellOfWindows = {};
+    Hm_cutoffs = [];
+end
+
 % -----------------------------------
 % Merge many controls into 1 control?
 % -----------------------------------
 % % Merge into one
 control_start = length(cellOfWindows)+1;
-control_end = length(cellOfWindows)+length(cellOfWindows);
-cellOfWindows(control_start:control_end) = Hc_cellOfWindows;
-cutoffs = [cutoffs,Hc_cutoffs];
+control_end = length(cellOfWindows)+length(Hc_cellOfWindows)+length(Hm_cellOfWindows);
+cellOfWindows(control_start:control_end) = [Hc_cellOfWindows; Hm_cellOfWindows];
+cutoffs = [cutoffs,Hc_cutoffs,Hm_cutoffs];
 
 % -------------------------------
 % If any cellOfWindows is empty, throw an error
