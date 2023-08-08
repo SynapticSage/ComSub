@@ -42,6 +42,7 @@ Default.winSize                       = [0, 0.300];   % size of the
                                                          % LTRIAL WINDOW
                                                          % first num is negative, second positive
 Default.positiveDerivativeCheck       = [Default.winSize(1), Default.winSize(2)/2]; % period of window with enforced positive derivative
+Default.midpattern                    = false; % whether to use a middle range of the pattern (adds extra pattern types)
 
 % used to be [-0.15, 0.15]
 Default.equalWindowsAcrossPatterns    = true; % whether all three patterns have the same #windows

@@ -19,7 +19,8 @@ end
 if method == "random"
     removeSize = abs(n1-n2);
     
-    indices = randperm(removeSize);
+    % indices = randperm(removeSize); 2023 remove
+    indices = randperm(max(n1, n2), removeSize); % 2023
     toRemove(indices',:) = [];
     indices = sort(indices);
     

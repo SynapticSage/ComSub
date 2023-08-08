@@ -24,8 +24,16 @@ else
     Option.nPatternAndControl = Option.nPatterns*2;
 end
 
+if Option.midpattern
+    Option.nPatternAndControl = Option.nPatternAndControl + Option.nPatterns;
+end
+
 if ~any(contains(Option.patternNames,"control"))
     Option.patternNames = [Option.patternNames; Option.patternNames+"-control"]';
+    Option.patternNames = Option.patternNames(:)';
+end
+if Option.midpattern
+    Option.patternNames = [Option.patternNames; Option.patternNames+"-mid"]';
     Option.patternNames = Option.patternNames(:)';
 end
 

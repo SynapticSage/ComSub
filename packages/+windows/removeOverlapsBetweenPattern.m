@@ -18,6 +18,7 @@ function nonOverlappingpattern = removeOverlapBetweenPattern...
     %     test_remove{i} = curr_ControlPattern;
     % end
     %
+    tic
     [nPossibleWindows,~] = size(windowsToRemove);
     [nExistingWindows,~] = size(windowsToPreserve);
     curr_existingwindow = zeros(1,2); % why without this it does not work??
@@ -36,4 +37,5 @@ function nonOverlappingpattern = removeOverlapBetweenPattern...
         end
     end
     nonOverlappingpattern = windowsToRemove;
+    disp("removeOverlapBetweenPattern took: " + toc + " seconds");
 end

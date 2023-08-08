@@ -100,7 +100,8 @@ else
         disp("selecting high = " + threshold)
         H_isPattern = H >= cutoffRepeat;
     elseif Opt.higherThanQuantile == -1
-        disp("selecting middle " + threshold + " " + opposite_threshold)
+        opp = (1-threshold);
+        disp("selecting middle " + threshold + " " + opp)
         if opposite_cutoff(1) < cutoff(1)
             H_isPattern = (H >= cutoffOppositeRepeat) & (H < cutoffRepeat);
         else

@@ -156,17 +156,16 @@ end
 % -------------------------------------------
 % If controls, then let's add a mid-pattern
 % -------------------------------------------
-keyboard
-midpattern = true;
-if midpattern
-    [cellOfWindows, cutoffs] = windows.make(Events.times, ...
+if Option.midpattern
+    [Hm_cellOfWindows, Hm_cutoffs, Hm_lowercutoffs] = windows.make(Events.times, ...
         Option.quantileToMakeWindows, Events.H(:,THETA:DELTA), Option,...
         'positiveDerivativeCheck', true, ...
         'outlierQuantile', Option.thetadelta_outlierQuantile,...
         'higherThanQuantile', -1);
     coherent_patterns = any(contains(Option.generateH, ["fromCoherence","fromWpli"]));
     if coherent_patterns
-        [Hm_cellOfWindows(RIPPLE), Hm_cutoffs(RIPPLE)] = windows.make(...
+        [Hm_cellOfWindows(RIPPLE), Hm_cutoffs(RIPPLE), Hm_lowercutoffs(RIPPLE)] ...
+            = windows.make(...
             Events.times,...
             Option.quantileToMakeWindows, ...
             Events.Hvals(:,RIPPLE),... 2023, rather than rip times with high coh (H), just high ripple coherence (Hvals)
@@ -177,19 +176,21 @@ if midpattern
     % Clean, Remove overalapping windows
     % ----------------------------------
     % clean up control windows: remove each control pattern's window's overlap
-    for pattern = 1:length(cellOfWindows)
-        curr = windows.removeOverlapsBetweenPattern(...
-            cell2mat(cellOfWindows(:,pattern)),... preserve control windows
-            cell2mat(Hm_cellOfWindows(:,pattern))); ... remove mid windows
-        Hm_cellOfWindows{pattern} = curr;
-        curr = windows.removeOverlapsBetweenPattern(...
-            cell2mat(Hc_cellOfWindows(:,pattern)),... preserve control windows
-            cell2mat(Hm_cellOfWindows(:,pattern))); ... remove mid windows
-        Hm_cellOfWindows{pattern} = curr;
-    end
+    % fewestPat = min(Option.nPatterns, length(Hm_cellOfWindows));
+    % for pattern = 1:fewestPat
+    %     curr = windows.removeOverlapsBetweenPattern(...
+    %         cell2mat(cellOfWindows(:,pattern)),... preserve control windows
+    %         cell2mat(Hm_cellOfWindows(:,pattern))); % remove mid windows
+    %     Hm_cellOfWindows{pattern} = curr;
+    %     curr = windows.removeOverlapsBetweenPattern(...
+    %         cell2mat(Hc_cellOfWindows(:,pattern)),... preserve control windows
+    %         cell2mat(Hm_cellOfWindows(:,pattern))); % remove mid windows
+    %     Hm_cellOfWindows{pattern} = curr;
+    % end
 else
     Hm_cellOfWindows = {};
     Hm_cutoffs = [];
+    Hm_lowercutoffs = [];
 end
 
 % -----------------------------------
@@ -198,8 +199,10 @@ end
 % % Merge into one
 control_start = length(cellOfWindows)+1;
 control_end = length(cellOfWindows)+length(Hc_cellOfWindows)+length(Hm_cellOfWindows);
-cellOfWindows(control_start:control_end) = [Hc_cellOfWindows; Hm_cellOfWindows];
+cellOfWindows(control_start:control_end) = [Hc_cellOfWindows, Hm_cellOfWindows];
 cutoffs = [cutoffs,Hc_cutoffs,Hm_cutoffs];
+lowcutoffs = zeros(1,length(cellOfWindows));
+lowcutoffs(control_end-length(Hm_cellOfWindows)+1:control_end) = Hm_lowercutoffs;
 
 % -------------------------------
 % If any cellOfWindows is empty, throw an error
@@ -213,7 +216,7 @@ end
 % -----------------------------------------
 % Equalize trials/windows for each pair of patttern-controlPattern
 [cellOfWindows, warnedEmptyControls] =...
-    control.equalizePatternControl(cellOfWindows);
+    control.equalizePatternControl(cellOfWindows, Option);
 
 % pick control pattern that actually contains controls, would break if all
 % three are empty...
@@ -270,6 +273,7 @@ end
 Events.cellOfWindows = cellOfWindows;
 Events.cutoffs = cutoffs;
 Events.nWindows      = cellfun(@(x) size(x, 1), cellOfWindows);
+Events.lowcutoffs = lowcutoffs;
 
 disp("")
 disp("Windows generated " + num2str(numWindowsCut) + " windows cut")
