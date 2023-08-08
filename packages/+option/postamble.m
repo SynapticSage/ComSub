@@ -48,3 +48,8 @@ else
     Option.genH_name = "power";
 end
 
+% if Option.genH_name == "power"
+%     Option.nPatternAndControl = Option.nPatternAndControl - 1;
+%     Option.patternNamesFull   = Option.patternNamesFull(1:end-1);
+%     Option.patternNames       = Option.patternNames(1:end-1);
+% end

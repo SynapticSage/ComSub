@@ -56,11 +56,23 @@ for i = 1:nPatterns
      switch Opt.thresholdMethod
         case 'quantile'
             if ~isempty(Opt.quantile) % USER DEFINED QUANTILE VECTOR
-                cutoff(:,i) = quantile(Opt.quantile(:,i),threshold);
-                opposite_cutoff(:,i) = quantile(Opt.quantile(:,i),1-threshold);
+                if Opt.higherThanQuantile == -1
+                    m = min(1-threshold, threshold);
+                    cutoff(:,i) = quantile(Opt.quantile(:,i), 0.5 + m/2);
+                    opposite_cutoff(:,i) = quantile(Opt.quantile(:,i), 0.5 - m/2);
+                else
+                    cutoff(:,i) = quantile(Opt.quantile(:,i),threshold);
+                    opposite_cutoff(:,i) = quantile(Opt.quantile(:,i),1-threshold);
+                end
             else % QUANTILE OF H
-                cutoff(:,i) = quantile(H(:,i),threshold);
-                opposite_cutoff(:,i) = quantile(H(:,i),1-threshold);
+                if Opt.higherThanQuantile == -1
+                    m = min(1-threshold, threshold);
+                    cutoff(:,i) = quantile(H(:,i), 0.5 + m/2);
+                    opposite_cutoff(:,i) = quantile(H(:,i), 0.5 - m/2);
+                else
+                    cutoff(:,i) = quantile(H(:,i),threshold);
+                    opposite_cutoff(:,i) = quantile(H(:,i),1-threshold);
+                end
             end
         case 'raw'
             cutoff(:,i) = threshold;

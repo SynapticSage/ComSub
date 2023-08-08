@@ -171,6 +171,13 @@ if Option.midpattern
             Events.Hvals(:,RIPPLE),... 2023, rather than rip times with high coh (H), just high ripple coherence (Hvals)
             Option,...
             'quantile', Events.Hvals(:,RIPPLE),'higherThanQuantile', -1); 
+    else
+        [Hm_cellOfWindows(RIPPLE), Hm_cutoffs(RIPPLE), Hm_lowercutoffs(RIPPLE)] = windows.make(...
+            Events.times, ...
+            Option.quantileToMakeWindows,...
+            Events.Hvals(:,RIPPLE),...
+            Option, ...
+            'threshold', 'quantile','higherThanQuantile', -1);
     end
     % ----------------------------------
     % Clean, Remove overalapping windows
@@ -276,6 +283,7 @@ Events.nWindows      = cellfun(@(x) size(x, 1), cellOfWindows);
 Events.lowcutoffs = lowcutoffs;
 
 disp("")
-disp("Windows generated " + num2str(numWindowsCut) + " windows cut")
+disp("Windows generated " + join(string(numWindowsCut),"-") + " windows cut")
 disp("  time elapsed: " + num2str(toc) + " seconds")
 disp("  cutoffs: " + num2str(cutoffs))
+
