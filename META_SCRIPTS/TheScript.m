@@ -163,7 +163,7 @@ if Option.analysis.cca % 🔀
     % (append cca commsub levels during events)
     % 藺
     event_anal   = ... 
-         analysis.cca.event_analysis(Patterns_overall, Spk, Events, Option);
+         analysis.cca.event_analysis(Patterns_overall, Spk, Events, Option, behavior);
     plots.plot_event_values(event_anal(2,7), 'figAppend', figAppend);
     Components_overall = ... 
          nd.fieldSet(Components_overall, 'event_anal', event_anal);

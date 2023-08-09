@@ -24,6 +24,21 @@ def scale(series):
     scaler = MinMaxScaler()
     return scaler.fit_transform(series.values.reshape(-1, 1)).ravel()
 
+def label_epochs(df, time_col='event_time', time_threshold=60*5):
+    # Calculate time difference
+    df.loc[:,'time_diff'] = df[time_col].diff()
+    # Initialize the epoch column with 0
+    df.loc[:,'epoch'] = 0
+    # If time difference is more than threshold, increment epoch
+    df.loc[df['time_diff'] > time_threshold, 'epoch'] = 1
+    # Calculate the cumulative sum of the epoch column
+    df.loc[:, 'epoch'] = df['epoch'].cumsum()
+    # Drop the time_diff column as we don't need it anymore
+    df.drop(columns=['time_diff'], inplace=True)
+    return df
+# Test the function on your dataframe
+df = df.sort_values(['event_time','animal','pattern_cca1','pattern_cca2']).groupby('animal').apply(label_epochs).reset_index()
+
 # Remove rows with NaN in 'event_u_values' or 'event_v_values'
 df_clean = df.dropna(subset=['event_u_values', 'event_v_values'])
 # Calculate the distance from each point to the line y = x
@@ -289,7 +304,7 @@ plot_bar_anim_summary(df_clean, 'perpendicular_score',     comp_max=5)
 # ------------
 # DIMENSIONALITY REDUCTION
 # ------------
-index = ['events', 'animal','genH', 'genH_highlow', 'highlow', 'patterns', 'event_time']
+index = ['events', 'animal','genH', 'genH_highlow', 'highlow', 'patterns', 'event_time', 'epoch']
 # Pivoting the data to get u_values for each uv_component
 df_u = df_clean.pivot_table(index=index,
                             columns='uv_components', 
@@ -421,13 +436,11 @@ def plot_umap_3d(matrix, row=None, col=None, hue=None, sample=None,
                  col_wrap=None, **kws):
     """
     Plot the UMAP-transformed data in 3D.
-
     Parameters:
     - matrix (DataFrame): UMAP-transformed data.
     - row (str, optional): Column in matrix to use for row-wise subplotting.
     - col (str, optional): Column in matrix to use for column-wise subplotting.
     - hue (str, optional): Column in matrix to use for color encoding.
-
     Returns:
     - FacetGrid: Seaborn FacetGrid object with scatter plots.
     """
@@ -441,63 +454,90 @@ def plot_umap_3d(matrix, row=None, col=None, hue=None, sample=None,
     # Create a grid of plots
     g = sns.FacetGrid(matrix, row=row, col=col, hue=hue, height=5, aspect=1,
                       col_wrap=col_wrap, subplot_kws={'projection': '3d'})
-
-    # Map 3D scatter plots onto the grid
-    g.map(plt.scatter, "dim_1", "dim_2", "dim_3", **kws)
-    
+    hue_mapping = {unique_value: index for index, unique_value in
+                   enumerate(matrix[hue].unique())}
+    hue_order = list(hue_mapping.keys())
+    for ax, data in g.facet_data():
+        palette = sns.utils.get_color_cycle()
+        c = g._get_palette(data, hue, hue_order, palette)[ax[-1]]
+        print("ax", ax)
+        if g.axes.ndim == 1:
+            AX = g.axes[ax[1]]
+        else:
+            AX = g.axes[ax[0], ax[1]]
+        AX.scatter(data["dim_1"], data["dim_2"], data["dim_3"], c=c, alpha=0.1)
     # # For each axis object, set it to 3D and plot the 3D scatter plot
     # for ax in g.axes.flat:
     #     ax.remove()
     #     ax = g.fig.add_subplot(ax, projection='3d')
     #     ax.scatter(matrix["dim_1"], matrix["dim_2"], matrix["dim_3"], c=matrix[hue])
-    
     g.add_legend()
-    
     return g
 
 plt.close('all')
 plot_umap_3d(um, hue='animal', sample=10_000, alpha=0.1)
-plot_umap_3d(um_anim, hue='animal', sample=10_000, alpha=0.1)
+plt.savefig(os.path.join(figfolder,'umap_3d_hue=animal.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'umap_3d_hue=animal.pdf'), dpi=300)
 
 plt.close('all')
 plot_umap_3d(um, hue='genH', col="animal", sample=10_000, alpha=0.4,
              col_wrap=3)
-plot_umap_3d(um_anim, hue='genH', col="animal", sample=10_000, alpha=0.1,
-             col_wrap=3)
+plt.savefig(os.path.join(figfolder,'umap_3d_hue=genH_col=animal.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'umap_3d_hue=genH_col=animal.pdf'), dpi=300)
 
 plt.close('all')
-plot_umap_3d(um, hue='genH_highlow', col="animal", sample=10_000, alpha=0.5,
+plot_umap_3d(um, hue='genH_highlow', col="animal", sample=5_000, alpha=1,
              col_wrap=3)
-plot_umap_3d(um_anim, hue='genH_highlow', col="animal", sample=10_000,
-             alpha=0.9, col_wrap=3)
+plt.savefig(os.path.join(figfolder,'umap_3d_hue=genH_highlow_col=animal.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'umap_3d_hue=genH_highlow_col=animal.pdf'), dpi=300)
 
 plt.close('all')
 plot_umap_3d(um, hue='genH_highlow', row="patterns", col="animal",
              sample=10_000, alpha=0.1)
+plt.savefig(os.path.join(figfolder,'umap_3d_hue=genH_highlow_row=patterns_col=animal.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'umap_3d_hue=genH_highlow_row=patterns_col=animal.pdf'), dpi=300)
+
+plot_umap_3d(um_anim, hue='genH_highlow', col="animal", sample=10_000,
+alpha=0.9, col_wrap=3)
+plt.savefig(os.path.join(figfolder,'umap_3d_rotanim_hue=genH_highlow_col=animal.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'umap_3d_rotanim_hue=genH_highlow_col=animal.pdf'), dpi=300)
+
+# plot_umap_3d(um_anim, hue='animal', sample=10_000, alpha=0.1)
+# plot_umap_3d(um_anim, hue='genH', col="animal", sample=10_000, alpha=0.1,
+#              col_wrap=3)
 
 # ========
-# UV magnitude over event times
+# UV magnitude OVER TIME 󰥔
 # ========
 
 # TODO: CUT OUT DIFF GREATER THAN 1 minute
 
-
 # Calculate magnitude for each u and v component
-df_matrix['magnitude_u'] = np.sqrt(df_matrix['1.0_u']**2 + df_matrix['2.0_u']**2 + df_matrix['3.0_u']**2 + df_matrix['4.0_u']**2 + df_matrix['5.0_u']**2)
-df_matrix['magnitude_v'] = np.sqrt(df_matrix['1.0_v']**2 + df_matrix['2.0_v']**2 + df_matrix['3.0_v']**2 + df_matrix['4.0_v']**2 + df_matrix['5.0_v']**2)
+df_matrix['magnitude_u'] = np.sqrt(df_matrix['1.0_u']**2 +
+                                   df_matrix['2.0_u']**2 +
+                                   df_matrix['3.0_u']**2 +
+                                   df_matrix['4.0_u']**2 +
+                                   df_matrix['5.0_u']**2)
+df_matrix['magnitude_v'] = np.sqrt(df_matrix['1.0_v']**2 +
+                                   df_matrix['2.0_v']**2 +
+                                   df_matrix['3.0_v']**2 +
+                                   df_matrix['4.0_v']**2 +
+                                   df_matrix['5.0_v']**2)
 
 # Reset the index for the operation
 df_matrix_reset = df_matrix.reset_index()
 # Calculate the linspace for each group
-def assign_time(group):
+def assign_time(group, time='events'):
     group_size = len(group)
-    first_event = group['events'].iloc[0]
-    last_event = group['events'].iloc[-1]
+    first_event = group[time].iloc[0]
+    last_event = group[time].iloc[-1]
     group['time'] = np.linspace(first_event, last_event, group_size)
     return group
-df_matrix_time = df_matrix_reset.groupby(['animal', 'genH']).apply(assign_time)
+use = 'event_time'
+df_matrix_time = df_matrix_reset.groupby(['animal', 'genH']).apply(lambda x:
+                                                                   assign_time(x, time=use))
 # Setting the new dataframe index back to its original structure
-df_matrix_time = df_matrix_time.set_index(['events', 'animal', 'genH', 'genH_highlow', 'highlow', 'patterns'])
+df_matrix_time = df_matrix_time.set_index([use, 'animal', 'genH', 'genH_highlow', 'highlow', 'patterns'])
 df_matrix_time.head()
 
 
@@ -506,10 +546,10 @@ df_matrix = df_matrix_time.reset_index()
 df_matrix['time'] = df_matrix['time'] - df_matrix.groupby('animal')['time'].transform('min')
 
 #9 Melt the data for easy plotting
-df_melted = df_matrix.melt(id_vars='time', value_vars=['magnitude_u', 'magnitude_v'], var_name='component', value_name='magnitude')
+df_melted = df_matrix.melt(id_vars=['epoch','time'], value_vars=['magnitude_u', 'magnitude_v'], var_name='component', value_name='magnitude')
 # Plot using relplot
 print("Plotting...")
-g = sns.relplot(data=df_melted, x='time', y='magnitude', kind='line', hue='component', height=5, aspect=2)
+g = sns.relplot(data=df_melted, x='time', y='magnitude', kind='line', hue='component', height=5, aspect=2, col='epoch', col_wrap=4)
 g.set_axis_labels("Event Time", "Magnitude")
 g.tight_layout()
 plt.show()
@@ -521,18 +561,32 @@ window_size = 20
 df_matrix['magnitude_u_smooth'] = df_matrix.groupby(['animal', 'genH'])['magnitude_u'].transform(lambda x: x.rolling(window_size).mean())
 df_matrix['magnitude_v_smooth'] = df_matrix.groupby(['animal', 'genH'])['magnitude_v'].transform(lambda x: x.rolling(window_size).mean())
 
-df_melted = df_matrix.melt(id_vars='time', value_vars=['magnitude_u_smooth', 'magnitude_v_smooth'], var_name='component', value_name='magnitude')
+df_melted = df_matrix.melt(id_vars=['time','epoch','animal','genH'], value_vars=['magnitude_u_smooth', 'magnitude_v_smooth'], var_name='component', value_name='magnitude')
 # Plot using relplot
 print("Plotting...")
-g = sns.relplot(data=df_melted, x='time', y='magnitude', kind='line', hue='component', height=5, aspect=2, alpha=0.5)
+g = sns.relplot(data=df_melted, x='time', y='magnitude', kind='line',
+                hue='component', height=5, aspect=2, alpha=0.5, col='epoch',
+                row='animal', facet_kws=dict(sharex=False))
 g.set_axis_labels("Event Time", "Magnitude")
 g.tight_layout()
 plt.show()
+plt.savefig(os.path.join(figfolder,'match_to_genH_overtime_hue=component_row=animal_col=epoch.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'match_to_genH_overtime_hue=component_row=animal_col=epoch.pdf'), dpi=300)
+
+g = sns.relplot(data=df_melted, x='time', y='magnitude', kind='line',
+                hue='genH', height=5, aspect=2, alpha=0.5, col='epoch',
+                row='animal', facet_kws=dict(sharex=False))
+g.set_axis_labels("Event Time", "Magnitude")
+g.tight_layout()
+plt.show()
+plt.savefig(os.path.join(figfolder,'match_to_genH_overtime_hue=component_row=animal_col=epoch.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'match_to_genH_overtime_hue=component_row=animal_col=epoch.pdf'), dpi=300)
+
 
 # Define number of bins
 num_bins = 100
 # Bin the event_time data
-df_matrix['time_bin'] = df_matrix.groupby(['animal', 'genH'])['time'].transform(lambda x: pd.cut(x, num_bins, labels=range(num_bins)))
+df_matrix['time_bin'] = df_matrix.groupby(['animal', 'genH', 'epoch'])['time'].transform(lambda x: pd.cut(x, num_bins, labels=range(num_bins)))
 
 
 # Plot using relplot

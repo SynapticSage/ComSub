@@ -1,4 +1,4 @@
-function out = event_analysis(Patterns_overall, Spk, Events, Option, varargin)
+function out = event_analysis(Patterns_overall, Spk, Events, Option, behavior, varargin)
 %EVENT_ANALYSIS   Calculate CCA r-values for each event in a given pattern.
 %
 %  out = event_analysis(Components, Patterns_overall, Spk, Events)
@@ -50,6 +50,11 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Event analysis')
     event_u_values_mean = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}), Opt.N);
     event_v_values_mean = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}), Opt.N);
     event_time = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
+    event_epoch = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
+    event_lindist = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
+    event_vel = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
+    event_trajbound = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
+    event_correct = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
     % uv_components = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
 
     if isempty(Patterns_overall(i).cca)
@@ -127,6 +132,21 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Event analysis')
             for n = 1:Opt.N
                 r(n) = corr(u(:,n), v(:,n));
             end
+
+            behtimes = interp1(behavior.time, 1:numel(behavior.time), center_time, 'nearest');
+            if all(~isnan(behtimes))
+                epoch     = behavior.epoch(behtimes);
+                lindist   = behavior.lindist(behtimes);
+                vel       = behavior.vel(behtimes);
+                trajbound = behavior.trajbound(behtimes);
+                correct   = behavior.rewarded(behtimes);
+            else
+                epoch     = nan;
+                lindist   = nan;
+                vel       = nan;
+                trajbound = nan;
+                correct   = nan;
+            end
             
             % Store the CCA r-value and canonical variates for this event
             event_r_values(w,j,:) = r;  % assuming we are interested in the first canonical correlation
@@ -139,6 +159,11 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Event analysis')
             event_u{w,j} = u;
             event_v{w,j} = v;
             event_time(w,j) = center_time;
+            event_epoch(w,j) = epoch;
+            event_lindist(w,j) = lindist;
+            event_vel(w,j) = vel;
+            event_trajbound(w,j) = trajbound;
+            event_correct(w,j) = correct;
         end
     end
     disp("...done")
@@ -150,6 +175,11 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Event analysis')
     out(i{:}).event_u        = event_u;
     out(i{:}).event_v        = event_v;
     out(i{:}).event_time     = event_time;
+    out(i{:}).epoch          = event_epoch;
+    out(i{:}).lindist        = event_lindist;
+    out(i{:}).vel            = event_vel;
+    out(i{:}).trajbound      = event_trajbound;
+    out(i{:}).correct        = event_correct;
     % out(i{:}).uv_comp        = uv_components;
 end
 
