@@ -80,14 +80,11 @@ print(df_clean.uv_components.unique())
 # Create a subplot grid with one row for each uv_component and one column for each pattern
 def plot_hist(df_clean, thing='on_commsub_mag', pattern_cca2=7):
     fig, axs = plt.subplots(len(uv_components), len(patterns), figsize=(4*len(patterns), 4*len(uv_components)), sharey=True)
-    
     if len(uv_components) == 1:
         axs = [axs]
     if len(patterns) == 1:
         axs = [[ax] for ax in axs]
-    
     q = df_clean[thing].quantile(0.99)
-
     for i, uv_component in enumerate(uv_components):
         for j, pattern in enumerate(patterns):
             ax = axs[i][j]
@@ -97,24 +94,31 @@ def plot_hist(df_clean, thing='on_commsub_mag', pattern_cca2=7):
                                   (df_clean['genH'] == genH) & 
                                   (df_clean['pattern_cca2'] == pattern_cca2)]
                 q_half = df_sub[thing].quantile(0.75)
+                # q_90 = df_sub[thing].quantile(0.90)
+                q_90 = df_sub[thing].mean()
                 g = sns.histplot(df_sub[thing], ax=ax, kde=False, label=genH, binrange=(0, 10))
                 palette = sns.color_palette()
                 color = palette[k % len(palette)]
                 ax.axvline(q_half, color=color, linestyle='--', label=f'75th percentile {genH}')
+                ax.axvline(q_90, color=color, linestyle=':')
             if i == 0:
                 ax.set_title(f'Pattern {pattern}')
             if j == 0:
                 ax.set_ylabel(f'UV Component {int(uv_component)}')
             ax.legend(title='genH')
             ax.set_xlim(0, q)
-    
     plt.tight_layout()
     plt.suptitle(f'{thing}')
     plt.subplots_adjust(top=0.95)
     plt.show()
 
+plt.close('all')
 plot_hist(df_clean, thing='on_commsub_mag')
+plt.savefig(os.path.join(figfolder, 'plot_hist_thing=on_commsub_mag.png'))
+plt.savefig(os.path.join(figfolder, 'plot_hist_thing=on_commsub_mag.pdf'))
 plot_hist(df_clean, thing='scaled_on_commsub_mag')
+plt.savefig(os.path.join(figfolder, 'plot_hist_thing=scaled_on_commsub_mag.png'))
+plt.savefig(os.path.join(figfolder, 'plot_hist_thing=scaled_on_commsub_mag.pdf'))
 # plot_hist(df_clean, thing='on_commsub')
 
 # PLOT: Scatter plot of event_u_values vs event_v_values -------------
@@ -168,7 +172,9 @@ def plot_hist_aggregated(df, thing='on_commsub_mag', pattern_cca2=7):
 
 # Test the function with the current DataFrame
 plot_hist_aggregated(df_clean, thing='on_commsub_mag')
+plt.savefig(os.path.join(figfolder, 'plot_hist_aggregated_thing=on_commsub_mag.png'))
 plot_hist_aggregated(df_clean, thing='scaled_on_commsub_mag')
+plt.savefig(os.path.join(figfolder, 'plot_hist_aggregated_thing=scaled_on_commsub_mag.png'))
 
 
 # PLOT: Bar plot of number of unique animals per uv_component, animal, and genH 

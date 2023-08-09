@@ -55,7 +55,7 @@ for G = uGroups'
         'marker', categorical(RT.targetArea),...
         'y', RT.performance, ...
         'color', categorical(RT.sameDirectionLabel),'subset',~RT.sameDirection);
-    g = g.facet_grid(categorical(RT.control),categorical(RT.targetArea));
+    g = g.facet_grid(categoical(RT.control),categorical(RT.targetArea));
     g = g.stat_summary('geom','line');
     g = g.stat_summary('geom','point');
     g = g.stat_summary('geom','errorbar');
