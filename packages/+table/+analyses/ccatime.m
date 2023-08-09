@@ -33,7 +33,7 @@ function resultTable = ccatime(Components_overall, varargin)
             % Extract the first 3 U x V components
             U = cca.u(:, 1:N);
             V = cca.v(:, 1:N);
-            pattern = Option.patternNames(j);
+            pattern = Components_overall(i, j).name;
             genH = Option.genH_name;
             direction = directions(i);
             pattern = repmat(pattern, size(U, 1), 1);
