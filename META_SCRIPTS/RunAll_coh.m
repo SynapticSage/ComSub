@@ -17,6 +17,7 @@ load("RunsSummary.mat", "RunsSummary");
 Option = option.defaults();
 Option.tableAppend = "_coh";
 Option.analysis.cca    = true;
+Option.midpattern = true;
 % Option.analysis.checks = true;
 
 animal_list = [...

@@ -301,29 +301,6 @@ if __name__ == "__main__":
     plt.savefig(os.path.join(figfolder, 'distance_value_distribution.png'), dpi=300)
     plt.savefig(os.path.join(figfolder, 'distance_value_distribution.pdf'))
 
-    #---------------------------
-
-    # Add a column for the absolute value of the distance in frobDf
-    frobDf["abs_distance"] = frobDf["distance"].abs()
-    # Pivot the dataframe to create a matrix for the absolute value distances
-    abs_distance_matrix = frobDf.pivot_table(index="rowvarX", columns="rowvarY", values="abs_distance", aggfunc="mean")
-    # Compute the dendrogram ordering for rows and columns using the provided function
-    row_order, col_order = compute_dendrogram_ordering(abs_distance_matrix)
-    # Create a heatmap of the absolute value distances using the computed ordering
-    plt.figure(figsize=(12, 10))
-    sns.heatmap(data=abs_distance_matrix.iloc[row_order, col_order], cmap="viridis", annot=True, fmt=".2f")
-    plt.title("Heatmap of Absolute Value Frobenius Distances")
-    plt.tight_layout()
-    plt.show()
-
-    # ----------------------------
-
-    # Create a Seaborn clustermap for the filled absolute value distance matrix
-    sns.clustermap(abs_distance_matrix, cmap="viridis", annot=True, fmt=".2f", method="average")
-    plt.title("Clustermap of Absolute Value Frobenius Distances")
-    plt.show()
-
-
 
     # ----------------------------
     # def pairwise_scatter_corrected(df):
@@ -356,10 +333,10 @@ if __name__ == "__main__":
     # ----------------------------
 
 
-    def plot_network_graph(df, scale=1):
-        # Create a new graph from the dataframe
+    def plot_network_graph(df, scale=1.5):
+    # Create a new graph from the dataframe
         G = nx.Graph()
-        
+
         for index, row in df.iterrows():
             if row['rowvarX'] == row['rowvarY'] or row['distance'] == 0:
                 weight = 0
@@ -367,10 +344,10 @@ if __name__ == "__main__":
                 weight = 1/row['distance']  # inverse weight for visualization
             G.add_edge(row['rowvarX'], row['rowvarY'], weight=weight)  # inverse weight for visualization
 
-        pos = nx.spring_layout(G, k=0.5, iterations=100)  # k = distance between nodes, iterations = number of iterations to run the algorithm
+        pos = nx.spring_layout(G, k=0.5, iterations=1000)  # k = distance between nodes, iterations = number of iterations to run the algorithm
         weights = nx.get_edge_attributes(G, 'weight').values()
         weights = [scale * w for w in weights]  # scale edge weights for visualization
-        
+
         print("Edge weights:")
         print(weights)
 
@@ -380,9 +357,16 @@ if __name__ == "__main__":
         nx.draw_networkx_labels(G, pos)
         nx.draw_networkx_edges(G, pos, width=list(weights))
         
+        # Draw edge labels
+        edge_labels = nx.get_edge_attributes(G, 'weight')
+        edge_labels = {(u, v): '{:.3f}'.format(weight) for (u, v), weight in nx.get_edge_attributes(G, 'weight').items()}
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, label_pos=0.5, font_size=10, font_color='black')
+
         plt.title('Network Graph of Distances')
         plt.show()
+        return G, weights
+
 
     # Running the function for the subspaceDf dataframe
-    plot_network_graph(subspaceDf)
+    G = plot_network_graph(subspaceDf)
     plot_network_graph(frobDf)

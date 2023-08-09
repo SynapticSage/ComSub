@@ -35,6 +35,9 @@ end
 if Option.midpattern
     Option.patternNames = [Option.patternNames; Option.patternNames+"-mid"]';
     Option.patternNames = Option.patternNames(:)';
+    figuredefine("-clearpermfolder")
+    figuredefine("-permfolder", "midpattern=true")
+    disp("Set figuredefine to " + figuredefine("-getpermfolder"))
 end
 
 if any(contains(Option.generateH, "fromWpli"))
@@ -47,6 +50,7 @@ else
     Option.patternNamesFull = Option.patternNames + "-power";
     Option.genH_name = "power";
 end
+
 
 % if Option.genH_name == "power"
 %     Option.nPatternAndControl = Option.nPatternAndControl - 1;
