@@ -21,7 +21,7 @@ function t_event = eventuv(s, pattern_labels, event_labels, uv_labels, scalar_in
 
     if numel(s) == 1
         % Define the event field names
-        event_fields = {'event_u_values', 'event_v_values', 'patterns', 'events', 'uv_components', 'event_time'};
+        event_fields = {'event_u_values', 'event_v_values', 'patterns', 'events', 'uv_components', 'event_time', 'epoch', 'lindist', 'vel', 'trajbound', 'correct'};
         if nargin < 3 || isempty(event_labels)
             % event_labels = 1:size(s(first_nonempty).event_u_values, 2);
             event_labels = 1:size(s.event_u_values, 2);
