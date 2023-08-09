@@ -70,52 +70,75 @@ df_clean = df_clean.query('pattern_cca1 == 2 & pattern_cca2 == 7')
 
 # Display the first few rows of the dataframe
 df_clean.head()
-uv_components = df_clean['uv_components'].unique()
-patterns = df_clean['patterns'].unique()
+uv_components = sorted(df_clean['uv_components'].unique())
+patterns = sorted(df_clean['patterns'].unique())
 genH_values = df_clean['genH'].unique()
+genH_highlow = sorted(df_clean['genH_highlow'].unique())
 
 print(df_clean.uv_components.unique())
 
 # PLOT: Hist plot of on/off commsub -------------
 # Create a subplot grid with one row for each uv_component and one column for each pattern
-def plot_hist(df_clean, thing='on_commsub_mag', pattern_cca2=7):
+def plot_hist(df_clean, thing='on_commsub_mag', pattern_cca2=7, **kws):
     fig, axs = plt.subplots(len(uv_components), len(patterns), figsize=(4*len(patterns), 4*len(uv_components)), sharey=True)
     if len(uv_components) == 1:
         axs = [axs]
     if len(patterns) == 1:
         axs = [[ax] for ax in axs]
+    
+    df_clean = df_clean.sort_values(['patterns'])
     q = df_clean[thing].quantile(0.99)
+    
     for i, uv_component in enumerate(uv_components):
         for j, pattern in enumerate(patterns):
             ax = axs[i][j]
-            for k, genH in enumerate(genH_values):
-                df_sub = df_clean[(df_clean['uv_components'] == uv_component) & 
-                                  (df_clean['patterns'] == pattern) & 
-                                  (df_clean['genH'] == genH) & 
-                                  (df_clean['pattern_cca2'] == pattern_cca2)]
+            
+            # Check if pattern_cca2 is set to 'match'
+            if pattern_cca2 == 'match':
+                pattern_cca2_value = pattern
+            else:
+                pattern_cca2_value = pattern_cca2
+                
+            for k, genH in enumerate(genH_highlow):
+                df_sub = df_clean[
+                    (df_clean['uv_components'] == uv_component) & 
+                    (df_clean['patterns'] == pattern) & 
+                    (df_clean['genH_highlow'] == genH) & 
+                    (df_clean['pattern_cca2'] == pattern_cca2_value)
+                ]
+                
                 q_half = df_sub[thing].quantile(0.75)
-                # q_90 = df_sub[thing].quantile(0.90)
                 q_90 = df_sub[thing].mean()
-                g = sns.histplot(df_sub[thing], ax=ax, kde=False, label=genH, binrange=(0, 10))
+                
+                g = sns.histplot(df_sub[thing], ax=ax, kde=False, label=genH, binrange=(0, 10), **kws)
                 palette = sns.color_palette()
                 color = palette[k % len(palette)]
                 ax.axvline(q_half, color=color, linestyle='--', label=f'75th percentile {genH}')
                 ax.axvline(q_90, color=color, linestyle=':')
+                
             if i == 0:
                 ax.set_title(f'Pattern {pattern}')
             if j == 0:
                 ax.set_ylabel(f'UV Component {int(uv_component)}')
-            ax.legend(title='genH')
+            
+            if i == 0 and (pattern == 0 or pattern == 3):
+                ax.legend(title='genH')
             ax.set_xlim(0, q)
+            
     plt.tight_layout()
     plt.suptitle(f'{thing}')
     plt.subplots_adjust(top=0.95)
     plt.show()
+    return g
+
 
 plt.close('all')
-plot_hist(df_clean, thing='on_commsub_mag')
+plot_hist(df_clean, thing='on_commsub_mag', stat="density", alpha=0.3)
 plt.savefig(os.path.join(figfolder, 'plot_hist_thing=on_commsub_mag.png'))
 plt.savefig(os.path.join(figfolder, 'plot_hist_thing=on_commsub_mag.pdf'))
+g=plot_hist(df_clean, thing='on_commsub_mag', stat="density", cumulative=True, alpha=0.45)
+plt.savefig(os.path.join(figfolder, 'plot_hist_thing=on_commsub_mag_cumulative.png'))
+plt.savefig(os.path.join(figfolder, 'plot_hist_thing=on_commsub_mag_cumulative.pdf'))
 plot_hist(df_clean, thing='scaled_on_commsub_mag')
 plt.savefig(os.path.join(figfolder, 'plot_hist_thing=scaled_on_commsub_mag.png'))
 plt.savefig(os.path.join(figfolder, 'plot_hist_thing=scaled_on_commsub_mag.pdf'))
@@ -153,7 +176,9 @@ def plot_hist_aggregated(df, thing='on_commsub_mag', pattern_cca2=7):
             # Calculate the 75th percentile of the 'thing' column
             q_half = df_sub[thing].quantile(0.75)
             # Plot a histogram of the 'thing' column values
-            g = sns.histplot(df_sub[thing], ax=ax, kde=False, label=genH, binrange=(0, 10), stat='density', common_norm=False)
+            g = sns.histplot(df_sub[thing], ax=ax, kde=False, label=genH,
+                             binrange=(0, 10), stat='density',
+                             common_norm=False)
             # Draw a vertical dashed line at the 75th percentile
             palette = sns.color_palette()
             color = palette[k % len(palette)]

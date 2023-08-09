@@ -20,6 +20,10 @@ file = os.path.expanduser(args.file)
 file = os.path.abspath(file)
 data = hdf5storage.loadmat(file)
 folder, basename = os.path.split(file)
+base, ext  = os.path.splitext(basename)
+figfolder = os.path.join(folder, base)
+if not os.path.exists(figfolder):
+    os.makedirs(figfolder)
 
 if __name__ == "__main__":
 
@@ -52,52 +56,71 @@ if __name__ == "__main__":
     subspace_cmap = 'plasma'
     frob_cmap     = 'inferno'
 
-    # Define range for subspaceDist colormap
-    vmin_subspace, vmax_subspace = 0, np.pi/2
+    def plot_heatmaps(scale='linear'):
+        # Define range for subspaceDist colormap
+        vmin_subspace, vmax_subspace = 0, np.pi/2
 
-    # Plotting with modifications
-    fig, axs = plt.subplots(2, 2, figsize=(14, 12))
+        # Plotting with modifications
+        fig, axs = plt.subplots(2, 2, figsize=(14, 12))
+        if scale == 'linear':
+            mean_frobDist       = globals()['mean_frobDist']
+            median_frobDist     = globals()['median_frobDist']
+            mean_subspaceDist   = globals()['mean_subspaceDist']
+            median_subspaceDist = globals()['median_subspaceDist']
+        elif scale == 'log':
+            mean_frobDist       = np.log(globals()['mean_frobDist'])
+            median_frobDist     = np.log(globals()['median_frobDist'])
+            mean_subspaceDist   = np.log(globals()['mean_subspaceDist'])
+            median_subspaceDist = np.log(globals()['median_subspaceDist'])
+        else:
+            raise ValueError("Invalid scale value.")
 
-    # Mean subspaceDist heatmap
-    cax1 = axs[0, 0].matshow(mean_subspaceDist, cmap=subspace_cmap, aspect='auto', vmin=vmin_subspace, vmax=vmax_subspace)
-    cbar1 = fig.colorbar(cax1, ax=axs[0, 0], ticks=[0, np.pi/4, np.pi/2])
-    cbar1.ax.set_yticklabels(['0', r'$\frac{\pi}{4}$', r'$\frac{\pi}{2}$'])  # LaTeX format
-    axs[0, 0].set_title("Mean subspaceDist")
-    axs[0, 0].set_xticks(np.arange(len(tick_labels)))
-    axs[0, 0].set_yticks(np.arange(len(tick_labels)))
-    axs[0, 0].set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=10)
-    axs[0, 0].set_yticklabels(tick_labels, fontsize=10)
+        # Mean subspaceDist heatmap
+        cax1 = axs[0, 0].matshow(mean_subspaceDist, cmap=subspace_cmap, aspect='auto', vmin=vmin_subspace, vmax=vmax_subspace)
+        cbar1 = fig.colorbar(cax1, ax=axs[0, 0], ticks=[0, np.pi/4, np.pi/2])
+        cbar1.ax.set_yticklabels(['0', r'$\frac{\pi}{4}$', r'$\frac{\pi}{2}$'])  # LaTeX format
+        axs[0, 0].set_title("Mean subspaceDist")
+        axs[0, 0].set_xticks(np.arange(len(tick_labels)))
+        axs[0, 0].set_yticks(np.arange(len(tick_labels)))
+        axs[0, 0].set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=10)
+        axs[0, 0].set_yticklabels(tick_labels, fontsize=10)
 
-    # Median subspaceDist heatmap
-    cax2 = axs[0, 1].matshow(median_subspaceDist, cmap=subspace_cmap, aspect='auto', vmin=vmin_subspace, vmax=vmax_subspace)
-    cbar2 = fig.colorbar(cax2, ax=axs[0, 1], ticks=[0, np.pi/4, np.pi/2])
-    cbar2.ax.set_yticklabels(['0', r'$\frac{\pi}{4}$', r'$\frac{\pi}{2}$'])  # LaTeX format
-    axs[0, 1].set_title("Median subspaceDist")
-    axs[0, 1].set_xticks(np.arange(len(tick_labels)))
-    axs[0, 1].set_yticks(np.arange(len(tick_labels)))
-    axs[0, 1].set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=10)
-    axs[0, 1].set_yticklabels(tick_labels, fontsize=10)
+        # Median subspaceDist heatmap
+        cax2 = axs[0, 1].matshow(median_subspaceDist, cmap=subspace_cmap, aspect='auto', vmin=vmin_subspace, vmax=vmax_subspace)
+        cbar2 = fig.colorbar(cax2, ax=axs[0, 1], ticks=[0, np.pi/4, np.pi/2])
+        cbar2.ax.set_yticklabels(['0', r'$\frac{\pi}{4}$', r'$\frac{\pi}{2}$'])  # LaTeX format
+        axs[0, 1].set_title("Median subspaceDist")
+        axs[0, 1].set_xticks(np.arange(len(tick_labels)))
+        axs[0, 1].set_yticks(np.arange(len(tick_labels)))
+        axs[0, 1].set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=10)
+        axs[0, 1].set_yticklabels(tick_labels, fontsize=10)
 
-    # Mean frobDist heatmap
-    cax3 = axs[1, 0].matshow(mean_frobDist, cmap=frob_cmap, aspect='auto')
-    cbar3 = fig.colorbar(cax3, ax=axs[1, 0])
-    axs[1, 0].set_title("Mean frobDist")
-    axs[1, 0].set_xticks(np.arange(len(tick_labels)))
-    axs[1, 0].set_yticks(np.arange(len(tick_labels)))
-    axs[1, 0].set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=10)
-    axs[1, 0].set_yticklabels(tick_labels, fontsize=10)
+        # Mean frobDist heatmap
+        cax3 = axs[1, 0].matshow(mean_frobDist, cmap=frob_cmap, aspect='auto')
+        cbar3 = fig.colorbar(cax3, ax=axs[1, 0])
+        axs[1, 0].set_title("Mean frobDist")
+        axs[1, 0].set_xticks(np.arange(len(tick_labels)))
+        axs[1, 0].set_yticks(np.arange(len(tick_labels)))
+        axs[1, 0].set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=10)
+        axs[1, 0].set_yticklabels(tick_labels, fontsize=10)
 
-    # Median frobDist heatmap
-    cax4 = axs[1, 1].matshow(median_frobDist, cmap=frob_cmap, aspect='auto')
-    cbar4 = fig.colorbar(cax4, ax=axs[1, 1])
-    axs[1, 1].set_title("Median frobDist")
-    axs[1, 1].set_xticks(np.arange(len(tick_labels)))
-    axs[1, 1].set_yticks(np.arange(len(tick_labels)))
-    axs[1, 1].set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=10)
-    axs[1, 1].set_yticklabels(tick_labels, fontsize=10)
+        # Median frobDist heatmap
+        cax4 = axs[1, 1].matshow(median_frobDist, cmap=frob_cmap, aspect='auto')
+        cbar4 = fig.colorbar(cax4, ax=axs[1, 1])
+        axs[1, 1].set_title("Median frobDist")
+        axs[1, 1].set_xticks(np.arange(len(tick_labels)))
+        axs[1, 1].set_yticks(np.arange(len(tick_labels)))
+        axs[1, 1].set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=10)
+        axs[1, 1].set_yticklabels(tick_labels, fontsize=10)
 
-    plt.tight_layout()
-    plt.show()
+        plt.tight_layout()
+        plt.show()
+
+    plot_heatmaps(scale='linear')
+    plt.savefig(os.path.join(figfolder, 'subspaceDist_frobDist.png'), dpi=300)
+
+    plot_heatmaps(scale='log')
+    plt.savefig(os.path.join(figfolder, 'subspaceDist_frobDist_log.png'), dpi=300)
 
     # ----------------------------
 
@@ -154,19 +177,16 @@ if __name__ == "__main__":
         
         return row_order, col_order
 
-    def create_side_by_side_clustermap_colorbar_correction(df, invert_values=False, nan_diagonal=False, percent_scale=False):
-        '''
-        Create two side-by-side Seaborn clustermaps (mean and standard error) for a given distance dataframe with corrected colorbar.
+    def create_side_by_side_clustermap(df, set_minoffdiag=False):
+        """
+        Create two side-by-side Seaborn clustermaps (mean and standard error) for a given distance dataframe.
         
         Args:
         - df (pd.DataFrame): The dataframe containing the distance information.
-        - invert_values (bool): If True, inverts values of mean_matrix to (max_value - value).
-        - nan_diagonal (bool): If True, sets the diagonal values to NaN.
-        - percent_scale (bool): If True, scales the matrices to be in percentage of the maximum value.
         
         Returns:
         - Two Seaborn clustermap visualizations side by side.
-        '''
+        """
         # Pivot the dataframe to create matrices for mean and standard error
         mean_matrix = df.pivot_table(index="rowvarX", columns="rowvarY", values="distance", aggfunc="mean")
         stderr_matrix = df.pivot_table(index="rowvarX", columns="rowvarY", values="distance", aggfunc=lambda x: np.std(x) / np.sqrt(len(x)))
@@ -175,47 +195,41 @@ if __name__ == "__main__":
         row_order, col_order = compute_dendrogram_ordering(mean_matrix)
         
         # Reorder the matrices based on the dendrogram ordering
-        mean_matrix = mean_matrix.iloc[row_order, col_order]
+        mean_matrix   = mean_matrix.iloc[row_order, col_order]
         stderr_matrix = stderr_matrix.iloc[row_order, col_order]
-        
-        if invert_values:
-            max_value_before_invert = mean_matrix.values.max()
-            mean_matrix = max_value_before_invert - mean_matrix
-
-        if percent_scale:
-            max_value = mean_matrix.values.max()
-            mean_matrix = (mean_matrix / max_value) * 100
-            stderr_matrix = (stderr_matrix / max_value) * 100
-
-        if nan_diagonal:
-            np.fill_diagonal(mean_matrix.values, np.nan)
-            np.fill_diagonal(stderr_matrix.values, np.nan)
         
         # Create the clustermaps with precomputed ordering
         fig, axs = plt.subplots(1, 2, figsize=(20, 8))
+
+        vmax = np.max(np.max(mean_matrix).values)
+        # min of non-diagonal elements
+        if set_minoffdiag:
+            I = np.eye(mean_matrix.shape[0], dtype=bool)
+            vmin = np.min(mean_matrix.values[~I])
+            mean_matrix.values[I] = np.nan
+        else:
+            vmin = 0
         
-        vmax = mean_matrix.values.max()  # Maximum value for color scaling
-        
-        # Setting colorbar start to 0, but allowing values to range from -vmax to vmax
-        sns.heatmap(mean_matrix, cmap="viridis", ax=axs[0], cbar_kws={'label': 'Mean Distance (%)' if percent_scale else 'Mean Distance'}, vmin=0, vmax=vmax)
+        sns.heatmap(mean_matrix, cmap="viridis", ax=axs[0], cbar_kws={'label': 'Mean Distance'}, vmax=vmax, vmin=vmin)
         axs[0].set_title("Mean Distance")
         
-        sns.heatmap(stderr_matrix, cmap="viridis", ax=axs[1], cbar_kws={'label': 'Standard Error (%)' if percent_scale else 'Standard Error'}, vmin=0, vmax=vmax)
+        sns.heatmap(stderr_matrix, cmap="viridis", ax=axs[1], cbar_kws={'label': 'Standard Error'})
         axs[1].set_title("Standard Error")
 
         plt.tight_layout()
         plt.show()
 
     # Create side-by-side clustermaps for the subspaceDf with the corrected colorbar for mean distances
-    create_side_by_side_clustermap_colorbar_correction(subspaceDf, invert_values=True, nan_diagonal=True, percent_scale=True)
-    create_side_by_side_clustermap_colorbar_correction(frobDf, invert_values=True, nan_diagonal=True, percent_scale=True)
+    plt.close('all')
+    create_side_by_side_clustermap(subspaceDf, set_minoffdiag=True)
+    plt.savefig(os.path.join(figfolder, 'subspaceDist_clustermap.png'), dpi=300)
+    plt.savefig(os.path.join(figfolder, 'subspaceDist_clustermap.pdf'), dpi=300)
+    create_side_by_side_clustermap(frobDf, set_minoffdiag=True)
+    plt.savefig(os.path.join(figfolder, 'frobDist_clustermap.png'), dpi=300)
+    plt.savefig(os.path.join(figfolder, 'frobDist_clustermap.pdf'), dpi=300)
 
-    create_side_by_side_clustermap_colorbar_correction(subspaceDf, invert_values=True, nan_diagonal=True, percent_scale=False)
-    create_side_by_side_clustermap_colorbar_correction(frobDf, invert_values=True, nan_diagonal=True, percent_scale=False)
 
-    create_side_by_side_clustermap_colorbar_correction(subspaceDf, invert_values=False, nan_diagonal=True, percent_scale=False)
-    create_side_by_side_clustermap_colorbar_correction(frobDf, invert_values=False, nan_diagonal=True, percent_scale=False)
-
+    
     # ----------------------------
     def create_ordered_barplot_with_options(df, color_col=None, subtract_mean=False, percent_scale=False):
         """
@@ -284,6 +298,8 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.show()
+    plt.savefig(os.path.join(figfolder, 'distance_value_distribution.png'), dpi=300)
+    plt.savefig(os.path.join(figfolder, 'distance_value_distribution.pdf'))
 
     #---------------------------
 
