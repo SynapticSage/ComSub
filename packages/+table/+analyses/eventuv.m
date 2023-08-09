@@ -21,7 +21,10 @@ function t_event = eventuv(s, pattern_labels, event_labels, uv_labels, scalar_in
 
     if numel(s) == 1
         % Define the event field names
-        event_fields = {'event_u_values', 'event_v_values', 'patterns', 'events', 'uv_components', 'event_time', 'epoch', 'lindist', 'vel', 'trajbound', 'correct'};
+        event_fields = {'event_u_values', 'event_v_values', 'patterns',...
+        'events', 'uv_components', 'event_time', 'epoch', 'lindist', 'vel',...
+        'trajbound', 'correct', 'event_mua', 'event_mua_var', 'event_N',...
+        'event_u_var', 'event_v_var'};
         if nargin < 3 || isempty(event_labels)
             % event_labels = 1:size(s(first_nonempty).event_u_values, 2);
             event_labels = 1:size(s.event_u_values, 2);
@@ -30,8 +33,8 @@ function t_event = eventuv(s, pattern_labels, event_labels, uv_labels, scalar_in
             % event_labels = reshape(event_labels, [], 1);
         end
 
-        s.patterns = pattern_labels(:);
-        s.events = event_labels(:)';
+        s.patterns      = pattern_labels(:);
+        s.events        = event_labels(:)';
         s.uv_components = permute(uv_labels(:), [3, 2, 1]);
         s = rmfield(s, setdiff(fieldnames(s), event_fields));
         q = nd.broadcast(s);

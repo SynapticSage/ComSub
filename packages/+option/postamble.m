@@ -38,6 +38,9 @@ if Option.midpattern
     figuredefine("-clearpermfolder")
     figuredefine("-permfolder", "midpattern=true")
     disp("Set figuredefine to " + figuredefine("-getpermfolder"))
+else
+    figuredefine("-clearpermfolder")
+    disp("Set figuredefine to " + figuredefine("-getpermfolder"))
 end
 
 if any(contains(Option.generateH, "fromWpli"))

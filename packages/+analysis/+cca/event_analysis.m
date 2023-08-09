@@ -49,12 +49,17 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Event analysis')
     event_v_values = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}), Opt.N);
     event_u_values_mean = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}), Opt.N);
     event_v_values_mean = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}), Opt.N);
+    event_u_values_var = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}), Opt.N);
+    event_v_values_var = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}), Opt.N);
+    event_values_N = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}), Opt.N);
     event_time = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
     event_epoch = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
     event_lindist = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
     event_vel = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
     event_trajbound = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
     event_correct = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
+    event_mua = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
+    event_mua_var = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
     % uv_components = nan(length(Events.cellOfWindows), length(Events.cellOfWindows{1}));
 
     if isempty(Patterns_overall(i).cca)
@@ -150,20 +155,25 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Event analysis')
             
             % Store the CCA r-value and canonical variates for this event
             event_r_values(w,j,:) = r;  % assuming we are interested in the first canonical correlation
-            event_u_values(w,j,:) = mean(u,1);
-            event_v_values(w,j,:) = mean(v,1);
-            event_u_values_mean(w,j,:)  = repmat(mean(mean(u,1)),1,Opt.N);
-            event_v_values_mean(w,j,:)  = repmat(mean(mean(v,1)),1,Opt.N);
+            event_u_values(w,j,:)      = mean(u,1);
+            event_v_values(w,j,:)      = mean(v,1);
+            event_u_values_mean(w,j,:) = repmat(mean(mean(u,1)),1,Opt.N);
+            event_v_values_mean(w,j,:) = repmat(mean(mean(v,1)),1,Opt.N);
+            event_u_values_var(w,j,:)  = repmat(var(mean(u,1)),1,Opt.N);
+            event_v_values_var(w,j,:)  = repmat(var(mean(v,1)),1,Opt.N);
+            event_values_N(w,j,:)      = repmat(Opt.N,1,Opt.N);
             % figure out how many nans
             % arrayfun(@(x) sum(isnan(event_v_values(:,x,:)),'all'), 1:size(event_v_values,2))
-            event_u{w,j} = u;
-            event_v{w,j} = v;
-            event_time(w,j) = center_time;
-            event_epoch(w,j) = epoch;
-            event_lindist(w,j) = lindist;
-            event_vel(w,j) = vel;
+            event_mua(w,j)       = mean([area1_spikes, area2_spikes],2);
+            event_mua_var(w,j)   = var([area1_spikes, area2_spikes],0,2);
+            event_u{w,j}         = u;
+            event_v{w,j}         = v;
+            event_time(w,j)      = center_time;
+            event_epoch(w,j)     = epoch;
+            event_lindist(w,j)   = lindist;
+            event_vel(w,j)       = vel;
             event_trajbound(w,j) = trajbound;
-            event_correct(w,j) = correct;
+            event_correct(w,j)   = correct;
         end
     end
     disp("...done")
@@ -172,8 +182,13 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Event analysis')
     out(i{:}).event_r_values = event_r_values;
     out(i{:}).event_u_values = event_u_values;
     out(i{:}).event_v_values = event_v_values;
+    out(i{:}).event_u_var    = event_u_values_var;
+    out(i{:}).event_v_var    = event_v_values_var;
     out(i{:}).event_u        = event_u;
     out(i{:}).event_v        = event_v;
+    out(i{:}).event_N        = event_values_N;
+    out(i{:}).event_mua      = event_mua;
+    out(i{:}).event_mua_var  = event_mua_var;
     out(i{:}).event_time     = event_time;
     out(i{:}).epoch          = event_epoch;
     out(i{:}).lindist        = event_lindist;

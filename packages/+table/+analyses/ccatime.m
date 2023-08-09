@@ -1,23 +1,23 @@
-function resultTable = ccatime(Components_overall, varargin)
+function resultTable = ccatime(Components_overall, Spk, varargin)
     % Parse optional input arguments
     p = inputParser;
-    addOptional(p, 'efizz', struct(), @isstruct);
-    addOptional(p, 'Option', struct(), @isstruct);
+    addOptional(p, 'efizz', struct(),   @isstruct);
+    addOptional(p, 'Option', struct(),  @isstruct);
     addOptional(p, 'behavior', table(), @istable);
     addParameter(p, 'behaviorColumns', {}, @iscellstr);
     addParameter(p, 'N', 3, @isnumeric); % Number of components to extract
     parse(p, varargin{:});
 
-    efizz = p.Results.efizz;
-    Option = p.Results.Option;
-    behavior = p.Results.behavior;
+    efizz           = p.Results.efizz;
+    Option          = p.Results.Option;
+    behavior        = p.Results.behavior;
     behaviorColumns = p.Results.behaviorColumns;
-    N = p.Results.N;
+    N               = p.Results.N;
 
     % Initialize an empty table
     resultTable = table();
 
-    consts = option.constants;
+    consts     = option.constants;
     directions = consts.directions;
 
     % Loop over all components
@@ -40,19 +40,20 @@ function resultTable = ccatime(Components_overall, varargin)
             genH = repmat(genH, size(U, 1), 1);
             direction = repmat(direction, size(U, 1), 1);
 
+            names = ["U" + (1:N), "V" + (1:N)];
+
             % Create a table from the U and V data
             UVTable = array2table([U, V], 'VariableNames',...
-                {'U1', 'U2', 'U3', 'V1', 'V2', 'V3'});
+                names);
             strtable = array2table([pattern, genH, direction], 'VariableNames',...
                 {'pattern', 'genH', 'direction'});
             UVTable = [UVTable, strtable];
 
+            field_strip = nd.flexrmfield(Components_overall(i, j), {'X_source', 'X_target', 'rankRegress', 'factorAnalysis', 'jpecc', 'cca', 'event_anal','index_source','index_target','source','target', 'X_time','regress'})
+
             % Repeat the scalar fields to match the size of the U and V data
-            scalarFields = structfun(@num2str,...
-            nd.flexrmfield(Components_overall(i, j), {'X_source', 'X_target',...
-            'rankRegress', 'factorAnalysis', 'jpecc', 'cca',...
-            'event_anal','index_source','index_target','source','target',...
-            'X_time'}), 'UniformOutput', false);
+            scalarFields = structfun(@num2str, field_strip, ...
+                                        'UniformOutput', false);
             % Create an array of scalar field values
             scalarVals        = string(struct2cell(scalarFields));
             scalarFields      = string(fieldnames(scalarFields));
@@ -76,6 +77,20 @@ function resultTable = ccatime(Components_overall, varargin)
             else
                 % Concatenate the U V table and the scalar fields table
                 tempTable = [UVTable, scalarFieldsTable];
+            end
+
+            % Add multiunit
+            if ~isempty(Spk)
+                multiunit = mean(Spk.spikeCountMatrix, 1);
+                multiunit = multiunit(:);
+                mua_time = Spk.timeBinMidPoints(:);
+                % interp
+                if size(multiunit, 1) ~= size(U, 1)
+                    multiunit = interp1(mua_time, multiunit, time, 'linear');
+                end
+                multiunitTable = array2table(multiunit,...
+                                    'VariableNames', {'mua'});
+                tempTable = [tempTable, multiunitTable];
             end
 
             % Add spectral properties at these times

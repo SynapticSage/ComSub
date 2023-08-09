@@ -15,9 +15,9 @@ load("RunsSummary.mat", "RunsSummary");
 
 %% Script parameters
 Option = option.defaults();
-Option.tableAppend = "_coh";
-Option.analysis.cca    = true;
-Option.midpattern = true;
+Option.tableAppend  = "_coh";
+Option.analysis.cca = true;
+Option.midpattern   = false;
 % Option.analysis.checks = true;
 
 animal_list = [...
@@ -95,6 +95,9 @@ for iAnimal = progress(1:numel(animal_list),'Title','Animal'); cntAn = cntAn + 1
             'Workspace', {Option}, 'CurrentFolder', pwd);
         else
             %try
+            if ~exist(figuredefine("logs"), 'dir')
+                mkdir(figuredefine("logs"));
+            end
             diary(figuredefine("logs", replace(strjoin([Option.animal, Option.generateH, Option.preProcess_zscore], "_"), " ", "") + ".log"));
             TheScript
             diary off
