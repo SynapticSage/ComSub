@@ -1,11 +1,11 @@
-function plotMuaSC(r, varargin)
-% plotFR(r, varargin)
+function plotMuaSC(Spk, varargin)
+% plotFR(Spk, varargin)
 % plot firing rate of a neuron
 
 % Plots a heatmap of the spike count matrix.
 %
 % Inputs:
-%   r           - the results struct
+%   Spk           - the results struct
 %
 % Options:
 %   ax          - axis to plot on
@@ -20,8 +20,9 @@ ip.addParameter('smooth',    2.5e3,   @isnumeric);
 ip.parse(varargin{:});
 Opt = ip.Results;
 
-scm   = sum(r.spikeCountMatrix, 1);
-times = r.timeBinMidPoints;
+scm   = sum(Spk.spikeCountMatrix, 1);
+scm   = scm(Spk.sessionTypePerBin == 1);
+times = Spk.timeBinMidPoints(Spk.sessionTypePerBin == 1);
 
 if Opt.smooth > 0
     scm = smooth(scm, Opt.smooth);

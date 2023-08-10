@@ -17,7 +17,7 @@ load("RunsSummary.mat", "RunsSummary");
 Option = option.defaults();
 Option.tableAppend  = "_coh";
 Option.analysis.cca = true;
-Option.midpattern   = false;
+Option.midpattern   = true;
 % Option.analysis.checks = true;
 
 animal_list = [...
@@ -98,13 +98,14 @@ for iAnimal = progress(1:numel(animal_list),'Title','Animal'); cntAn = cntAn + 1
             if ~exist(figuredefine("logs"), 'dir')
                 mkdir(figuredefine("logs"));
             end
-            diary(figuredefine("logs", replace(strjoin([Option.animal, Option.generateH, Option.preProcess_zscore], "_"), " ", "") + ".log"));
+            diary(figuredefine("logs", replace(strjoin([Option.animal, Option.generateH, Option.preProcess_zscore, Option.midpattern], "_"), " ", "") + ".log"));
             TheScript
             diary off
             %catch MatlabException
                 %warning('Failed to run %s %s', Option.animal, Option.generateH);
             %end
         end
+        table.combineAndUpdateTables("RunsSummary_*", "RunsSummary");
         disp("finished " + Option.animal + " " + Option.generateH + " " + Option.preProcess_zscore + "<---" + string(datetime('now')));
         close all
 end % genH

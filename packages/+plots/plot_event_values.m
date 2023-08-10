@@ -30,6 +30,8 @@ marg_w = [0.01 0.01];
 clear ha
 ha = tight_subplot(Nh, Nw, gap, marg_h, marg_w);
 
+points_u = cell(numRows, numCols);
+points_v = cell(numRows, numCols);
 % Loop over the rows and columns
 for row = 1:numRows
     for col = 1:numCols
@@ -41,6 +43,8 @@ for row = 1:numRows
         % Get the u and v values for this row and column
         u_values = squeeze(event_u_values(row, :, col));
         v_values = squeeze(event_v_values(row, :, col));
+        points_u{row, col} = u_values;
+        points_v{row, col} = v_values;
 
         % Plot the u and v values
         scatter(u_values, v_values);
@@ -62,12 +66,22 @@ for row = 1:numRows
         title(sprintf('Pattern: %d, Component: %d', row, col));
     end
 end
+
+disp("setting axes");
+uq = cat(1, points_u{:});
+vq = cat(1, points_v{:});
+qlim_x = quantile(uq(:), [0.001 0.999]);
+qlim_y = quantile(vq(:), [0.001 0.999]);
+
 linkaxes(ha, 'xy');
-set(findobj(gcf,'type','axes'),'XLim',[-3 3],'YLim',[-3 3]);
-set(gcf, 'Position', get(0, 'Screensize'));
+set(findobj(gcf,'type','axes'),'XLim',qlim_x,'YLim',qlim_y);
+% set(gcf, 'Position', get(0, 'Screensize'));
+pos=get(gcf, 'Position');
+set(gcf, 'Position', [pos(1) pos(2) pos(3)*1.5 pos(4)*1.5]);
 if ~exist(figuredefine("cca_eventanal"), 'dir')
     mkdir(figuredefine("cca_eventanal"));
 end
+disp("saving");
 saveas(gcf, figuredefine("cca_eventanal", sprintf('event_values%s.png', Opt.figAppend)));
 saveas(gcf, figuredefine("cca_eventanal", sprintf('event_values%s.pdf', Opt.figAppend)));
 saveas(gcf, figuredefine("cca_eventanal", sprintf('event_values%s.fig', Opt.figAppend)));

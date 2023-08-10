@@ -184,7 +184,9 @@ df_clean['highlow_genH'] = df_clean['highlow'] + "_" + df_clean['genH'].astype(s
 df_clean['magnitude_u'] = np.abs(df_clean['event_u_values'])
 df_clean['magnitude_v'] = np.abs(df_clean['event_v_values'])
 df_clean[['magnitude_u', 'magnitude_v']].head()
-df_clean['pattern_class'] = np.floor(df.patterns / 3)
+mapping = {i:(i-1)%3+1 for i in range(1, 7)}
+mapping[7] = np.nan
+df_clean['pattern_class'] = df_clean['patterns'].map(mapping)
 
 # FILTER
 df_clean = df_clean.query('pattern_cca1 == 2 & pattern_cca2 == 7')
@@ -779,7 +781,7 @@ def corrected_ci_barplot(boot_stats, groups):
     plt.tight_layout()
     plt.show()
 
-def corrected_ci_barplot_v2(df, groups, hue, row):
+def corrected_ci_barplot_v3(df, groups, hue, row=None, col=None):
     grouped = df.stack().reset_index().groupby(groups)
     means = grouped[0].mean()
     lower = grouped[0].apply(lambda x: np.percentile(x, 2.5))
@@ -795,44 +797,71 @@ def corrected_ci_barplot_v2(df, groups, hue, row):
     # Define the width of the bars
     width = 0.4
 
-    # Unique values of 'epoch', 'highlow', and 'genH'
+    # Unique values of 'epoch', 'hue', 'row', and 'col'
     epochs = stats_df['epoch'].unique()
-    highlow_vals = stats_df[hue].unique()
-    genH_vals = stats_df[row].unique()
+    hue_vals = stats_df[hue].unique()
+    row_vals = [None] if row is None else stats_df[row].unique()
+    col_vals = [None] if col is None else stats_df[col].unique()
 
-    # Create a subplot for each 'genH' value
-    fig, axes = plt.subplots(nrows=len(genH_vals), figsize=(10, 5*len(genH_vals)))
+    # Create subplots based on the unique values of 'row' and 'col'
+    fig, axes = plt.subplots(nrows=len(row_vals), ncols=len(col_vals), figsize=(10*len(col_vals), 5*len(row_vals)))
 
-    for k, genH_val in enumerate(genH_vals):
-        ax = axes[k]
-        
-        for i, epoch in enumerate(epochs):
-            for j, highlow_val in enumerate(highlow_vals):
-                # Filter the stats_df for the current epoch, highlow_val, and genH_val
-                data_row = stats_df[(stats_df['epoch'] == epoch) & 
-                                    (stats_df[hue] == highlow_val) & 
-                                    (stats_df[row] == genH_val)]
-                
-                # Calculate position for the bar
-                position = i - width/2 + j*width
-                
-                # Plot the bar
-                ax.bar(position, data_row['mean'].values[0], width=width, 
-                       label=f"{highlow_val if i == 0 and j == 0 else ''}", color=sns.color_palette()[j])
-                
-                # Add the error bar
-                ax.errorbar(position, data_row['mean'].values[0], 
-                            yerr=[[data_row['mean'].values[0] - data_row['lower'].values[0]], 
-                                  [data_row['upper'].values[0] - data_row['mean'].values[0]]], 
-                            fmt='none', color='black')
-        
-        # Set the x-ticks, labels, and title for the subplot
-        ax.set_xticks(np.arange(len(epochs)))
-        ax.set_xticklabels(epochs)
-        ax.set_xlabel('Epoch')
-        ax.set_ylabel('Mean Value')
-        ax.set_title(f'genH = {genH_val}')
-        ax.legend(title=hue)
+    # Ensure axes is always a 2D array
+    if row is None and col is None:
+        axes = np.array([[axes]])
+    elif row is None:
+        axes = np.array([axes])
+    elif col is None:
+        axes = np.array([axes]).T
+
+    for r, row_val in enumerate(row_vals):
+        for c, col_val in enumerate(col_vals):
+            ax = axes[r, c]
+            
+            for i, epoch in enumerate(epochs):
+                for j, hue_val in enumerate(hue_vals):
+                    # Filter for the current combination of epoch, hue, row, and col
+                    mask = (stats_df['epoch'] == epoch) & (stats_df[hue] == hue_val)
+                    if row:
+                        mask &= (stats_df[row] == row_val)
+                    if col:
+                        mask &= (stats_df[col] == col_val)
+                    data_row = stats_df[mask]
+                    
+                    # Calculate position for the bar
+                    position = i - width/2 + j*width
+
+                    # Plot the bar
+                    if data_row.empty:
+                        ax.bar(position, 0, width=width, 
+                               label=f"{hue_val if i == 0 and j == 0 else ''}", color=sns.color_palette()[j])
+                    else:
+                        ax.bar(position, data_row['mean'].values[0], width=width, 
+                               label=f"{hue_val if i == 0 and j == 0 else ''}", color=sns.color_palette()[j])
+                    
+                    # Add the error bar
+                    if data_row.empty:
+                        ax.errorbar(position, 0, 
+                                    yerr=[[0], [0]], 
+                                    fmt='none', color='black')
+                    else:
+                        ax.errorbar(position, data_row['mean'].values[0], 
+                                    yerr=[[data_row['mean'].values[0] - data_row['lower'].values[0]], 
+                                          [data_row['upper'].values[0] - data_row['mean'].values[0]]], 
+                                    fmt='none', color='black')
+            
+            # Set the x-ticks, labels, and title for the subplot
+            ax.set_xticks(np.arange(len(epochs)))
+            ax.set_xticklabels(epochs)
+            ax.set_xlabel('Epoch')
+            ax.set_ylabel('Mean Value')
+            title = []
+            if row:
+                title.append(f'{row} = {row_val}')
+            if col:
+                title.append(f'{col} = {col_val}')
+            ax.set_title(', '.join(title))
+            ax.legend(title=hue)
 
     plt.tight_layout()
     plt.show()
@@ -850,7 +879,7 @@ plt.savefig(os.path.join(figfolder,'magU_genH_overtime_hue=genH.pdf'), dpi=300)
 
 # sns.catplot(data=uboot_stats.stack().reset_index(), x='epoch', y=0, hue='highlow',
 #             row='genH', height=5, aspect=2, alpha=0.5, kind='bar')
-corrected_ci_barplot_v2(uboot_stats, ['epoch', 'highlow', 'genH'], 'highlow', 'genH')
+corrected_ci_barplot_v3(uboot_stats, ['epoch', 'highlow', 'genH'], 'highlow', 'genH')
 plt.savefig(os.path.join(figfolder,'magU_genH_overtime_hue=highlow_row=genH.png'), dpi=300)
 plt.savefig(os.path.join(figfolder,'magU_genH_overtime_hue=highlow_row=genH.pdf'), dpi=300)
 
@@ -870,7 +899,7 @@ plt.savefig(os.path.join(figfolder,'magV_genH_overtime_hue=genH.pdf'), dpi=300)
 # sns.catplot(data=vboot_stats.stack().reset_index(), x='epoch', y=0, hue='highlow',
 #             row='genH', height=5, aspect=2, alpha=0.5, kind='bar')
 # Call the function
-corrected_ci_barplot_v2(vboot_stats, ['epoch', 'highlow', 'genH'], 'highlow', 'genH')
+corrected_ci_barplot_v3(vboot_stats, ['epoch', 'highlow', 'genH'], 'highlow', 'genH')
 plt.savefig(os.path.join(figfolder,'magV_genH_overtime_hue=highlow_row=genH.png'), dpi=300)
 plt.savefig(os.path.join(figfolder,'magV_genH_overtime_hue=highlow_row=genH.pdf'), dpi=300)
 
@@ -886,12 +915,25 @@ plt.savefig(os.path.join(figfolder,'magR_genH_overtime_hue=genH.pdf'), dpi=300)
 # sns.catplot(data=vboot_stats.stack().reset_index(), x='epoch', y=0, hue='highlow',
 #             row='genH', height=5, aspect=2, alpha=0.5, kind='bar')
 # Call the function
-corrected_ci_barplot_v2(vboot_stats, ['epoch', 'highlow', 'genH'], 'highlow', 'genH')
+corrected_ci_barplot_v3(vboot_stats, ['epoch', 'highlow', 'genH'], 'highlow', 'genH')
 plt.savefig(os.path.join(figfolder,'magR_genH_overtime_hue=highlow_row=genH.png'), dpi=300)
 plt.savefig(os.path.join(figfolder,'magR_genH_overtime_hue=highlow_row=genH.pdf'), dpi=300)
 
 
 # Call the function with both row and col arguments
-corrected_ci_barplot_v3(boot_stats, ['epoch', 'highlow', 'genH'], 'highlow', row='genH', col=None)  # Adjust the 'col' argument as needed
+corrected_ci_barplot_v3(vboot_stats, ['epoch', 'highlow', 'genH'], 'highlow', row='genH', col=None)  # Adjust the 'col' argument as needed
+
+# 
+vboot_stats, vboot_cis = bootstrap_statistics(df_matrix,
+                                            ['epoch', 'highlow', 'highlow_genH', 'genH_highlow', 'genH','pattern_class'],
+                                            'magnitude_v', 'mean', n_boot=1000, ci=95)
+# Call the function
+corrected_ci_barplot_v3(vboot_stats, ['epoch', 'highlow', 'genH', 'pattern_class'], hue='highlow', row='genH', col='pattern_class')  # Adjust the 'col' argument as needed
+plt.savefig(os.path.join(figfolder,'magR_genH_overtime_hue=highlow_row=genH.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'magR_genH_overtime_hue=highlow_row=genH.pdf'), dpi=300)
 
 
+
+vboot_stats, vboot_cis = bootstrap_statistics(df_matrix,
+                                            ['epoch', 'highlow', 'highlow_genH', 'genH_highlow', 'genH','pattern_class'],
+                                            'magnitude_v', 'mean', n_boot=1000, ci=95)
