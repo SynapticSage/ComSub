@@ -4,10 +4,125 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
 import os
+from tqdm import tqdm
+tqdm.tqdm.pandas()
 
 figfolder = "/Volumes/MATLAB-Drive/Shared/figures/eventuv_python/"
 if not os.path.exists(figfolder):
     os.makedirs(figfolder)
+
+def prep_uv_melt(df_clean):
+    from sklearn.cross_decomposition import CCA
+    from sklearn.preprocessing import StandardScaler
+    # ------------
+    # DIMENSIONALITY REDUCTION
+    # ------------
+    index = ['events', 'animal','genH', 'genH_highlow', 'highlow', 'patterns',
+             'event_time', 'epoch', 'highlow_genH', 'pattern_class']
+    # Pivoting the data to get u_values for each uv_component
+    df_u = df_clean.pivot_table(index=index,
+                                columns='uv_components', 
+                                values='event_u_values', 
+                                aggfunc='first').reset_index()
+    # Renaming columns for clarity
+    df_u.columns = [str(col) + '_u' if isinstance(col, float) else col for col in df_u.columns]
+    # Pivoting the data to get v_values for each uv_component
+    df_v = df_clean.pivot_table(index=index,
+                                columns='uv_components', 
+                                values='event_v_values', 
+                                aggfunc='first').reset_index()
+    # Renaming columns for clarity
+    df_v.columns = [str(col) + '_v' if isinstance(col, float) else col for col in df_v.columns]
+    # Merging the two dataframes to get the final matrix
+    df_matrix = df_u.merge(df_v, on=index)
+    # Removing 'events' and 'animal' columns to get the matrix
+    matrix = df_matrix.drop(columns=['events', 'animal'])
+    matrix.head()
+
+    # ------------ CCA ------------
+    # Choose the first unique animal as the reference
+    reference_animal = "JS21"
+    df_matrix = df_matrix.reset_index()
+
+    # Split the data into u and v components for CCA
+    X_ref = df_matrix[df_matrix['animal'] == reference_animal].filter(like='_u')
+    Y_ref = df_matrix[df_matrix['animal'] == reference_animal].filter(like='_v')
+
+    # Fit the CCA model using the reference animal's data
+    cca = CCA(n_components=X_ref.shape[1])
+    cca.fit(X_ref, Y_ref)
+
+    # Project the data of all animals onto the canonical space of the reference animal
+    df_matrix_projected = df_matrix.copy()
+    u_cols = [col for col in df_matrix.columns if '_u' in col]
+    v_cols = [col for col in df_matrix.columns if '_v' in col]
+
+    for animal in df_matrix['animal'].unique():
+        print(f'Projecting {animal} onto {reference_animal}')
+        X_animal = df_matrix[df_matrix['animal'] == animal][u_cols]
+        Y_animal = df_matrix[df_matrix['animal'] == animal][v_cols]
+        X_c, Y_c = cca.transform(X_animal, Y_animal)
+        df_matrix_projected.loc[df_matrix_projected['animal'] == animal, u_cols] = X_c
+        df_matrix_projected.loc[df_matrix_projected['animal'] == animal, v_cols] = Y_c
+    df_matrix_projected.set_index(index, inplace=True)
+
+
+    # Mean-center each matrix by animal
+    for animal in df_matrix['animal'].unique():
+        print(f'Mean-centering {animal}')
+        animal_data = df_matrix_projected.loc[df_matrix_projected.index.get_level_values('animal') == animal]
+        mean_centered_data = StandardScaler(with_std=False).fit_transform(animal_data.values)
+        df_matrix_projected.loc[df_matrix_projected.index.get_level_values('animal') == animal] = mean_centered_data
+
+    df_matrix.set_index(index, inplace=True)
+    return df_matrix
+
+def prep_uv_magnitude_over_time(df_matrix, time='events'):
+    """
+    """
+    # Calculate magnitude for each u and v component
+    df_matrix['magnitude_u'] = np.sqrt(df_matrix['1.0_u']**2 +
+                                       df_matrix['2.0_u']**2 +
+                                       df_matrix['3.0_u']**2 +
+                                       df_matrix['4.0_u']**2 +
+                                       df_matrix['5.0_u']**2)
+    df_matrix['magnitude_v'] = np.sqrt(df_matrix['1.0_v']**2 +
+                                       df_matrix['2.0_v']**2 +
+                                       df_matrix['3.0_v']**2 +
+                                       df_matrix['4.0_v']**2 +
+                                       df_matrix['5.0_v']**2)
+
+    # Reset the index for the operation
+    df_matrix_reset = df_matrix.reset_index()
+    # Calculate the linspace for each group
+    def assign_time(group, time=time):
+        group_size = len(group)
+        first_event = group[time].iloc[0]
+        last_event = group[time].iloc[-1]
+        group['time'] = np.linspace(first_event, last_event, group_size)
+        return group
+    use = 'event_time'
+    df_matrix_time = df_matrix_reset.groupby(['animal', 'genH']).apply(lambda x:
+                                                                       assign_time(x, time=use))
+    # Setting the new dataframe index back to its original structure
+    df_matrix_time = df_matrix_time.set_index([use, 'animal', 'genH', 'genH_highlow', 'highlow', 'patterns'])
+    # Define window size
+    window_size = 20
+    # Apply rolling mean
+    df_matrix['magnitude_u_smooth'] = df_matrix.groupby(['animal', 'genH'])['magnitude_u'].transform(lambda x: x.rolling(window_size).mean())
+    df_matrix['magnitude_v_smooth'] = df_matrix.groupby(['animal', 'genH'])['magnitude_v'].transform(lambda x: x.rolling(window_size).mean())
+    df_matrix_time.head()
+
+    # Subtract minimum time per animal
+    df_matrix = df_matrix_time.reset_index()
+    df_matrix['time'] = df_matrix['time'] - df_matrix.groupby('animal')['time'].transform('min')
+
+    # Define number of bins
+    num_bins = 100
+    # Bin the event_time data
+    df_matrix['time_bin'] = df_matrix.groupby(['animal', 'genH', 'epoch'])['time'].transform(lambda x: pd.cut(x, num_bins, labels=range(num_bins)))
+    return df_matrix
+
 
 # Load the provided CSV file
 df = pd.read_parquet('/Volumes/MATLAB-Drive/Shared/figures/tables/eventuv.parquet')
@@ -24,7 +139,7 @@ def scale(series):
     scaler = MinMaxScaler()
     return scaler.fit_transform(series.values.reshape(-1, 1)).ravel()
 
-def label_epochs(df, time_col='event_time', time_threshold=60*5):
+def label_epochs(df, time_col='event_time', time_threshold=60*10):
     # Calculate time difference
     df.loc[:,'time_diff'] = df[time_col].diff()
     # Initialize the epoch column with 0
@@ -37,7 +152,7 @@ def label_epochs(df, time_col='event_time', time_threshold=60*5):
     df.drop(columns=['time_diff'], inplace=True)
     return df
 # Test the function on your dataframe
-df = df.sort_values(['event_time','animal','pattern_cca1','pattern_cca2']).groupby('animal').apply(label_epochs).reset_index()
+df = df.sort_values(['event_time','animal']).groupby('animal').progress_apply(label_epochs).reset_index()
 
 # Remove rows with NaN in 'event_u_values' or 'event_v_values'
 df_clean = df.dropna(subset=['event_u_values', 'event_v_values'])
@@ -64,6 +179,7 @@ df_clean['highlow_genH'] = df_clean['highlow'] + "_" + df_clean['genH'].astype(s
 df_clean['magnitude_u'] = np.abs(df_clean['event_u_values'])
 df_clean['magnitude_v'] = np.abs(df_clean['event_v_values'])
 df_clean[['magnitude_u', 'magnitude_v']].head()
+df_clean['pattern_class'] = np.floor(df.patterns / 3)
 
 # FILTER
 df_clean = df_clean.query('pattern_cca1 == 2 & pattern_cca2 == 7')
@@ -110,7 +226,8 @@ def plot_hist(df_clean, thing='on_commsub_mag', pattern_cca2=7, **kws):
                 q_half = df_sub[thing].quantile(0.75)
                 q_90 = df_sub[thing].mean()
                 
-                g = sns.histplot(df_sub[thing], ax=ax, kde=False, label=genH, binrange=(0, 10), **kws)
+                g = sns.histplot(df_sub[thing], 
+                                 ax=ax, kde=False, label=genH, binrange=(0, 10), **kws)
                 palette = sns.color_palette()
                 color = palette[k % len(palette)]
                 ax.axvline(q_half, color=color, linestyle='--', label=f'75th percentile {genH}')
@@ -130,7 +247,6 @@ def plot_hist(df_clean, thing='on_commsub_mag', pattern_cca2=7, **kws):
     plt.subplots_adjust(top=0.95)
     plt.show()
     return g
-
 
 plt.close('all')
 plot_hist(df_clean, thing='on_commsub_mag', stat="density", alpha=0.3)
@@ -165,14 +281,11 @@ def plot_hist_aggregated(df, thing='on_commsub_mag', pattern_cca2=7):
 
     # Create a subplot grid with one column for each pattern
     fig, axs = plt.subplots(1, len(patterns), figsize=(5 * len(patterns), 5), sharey=True)
-    
     # Adjust for case when there is only one pattern
     if len(patterns) == 1:
         axs = [axs]
-
     # Calculate the 99th percentile of the 'thing' column for the x-axis limit
     q = df[thing].quantile(0.99)
-
     # For each pattern
     for j, pattern in enumerate(sorted(patterns)):
         ax = axs[j]
@@ -180,6 +293,9 @@ def plot_hist_aggregated(df, thing='on_commsub_mag', pattern_cca2=7):
         for k, genH in enumerate(genH_highlow):
             # Filter the DataFrame for the current pattern, genH, and pattern_cca2
             df_sub = df[(df['patterns'] == pattern) & (df['genH_highlow'] == genH) & (df['pattern_cca2'] == pattern_cca2)]
+            if df_sub.empty:
+                print(f'No data for pattern {pattern}, genH {genH}, pattern_cca2 {pattern_cca2}')
+                continue
             # Calculate the 75th percentile of the 'thing' column
             q_half = df_sub[thing].quantile(0.75)
             # Plot a histogram of the 'thing' column values
@@ -339,69 +455,6 @@ plot_bar_anim_summary(df_clean, 'abs_perpendicular_score', comp_max=5)
 plot_bar_anim_summary(df_clean, 'projection_score',        comp_max=5)
 plot_bar_anim_summary(df_clean, 'perpendicular_score',     comp_max=5)
 
-# ------------
-# DIMENSIONALITY REDUCTION
-# ------------
-index = ['events', 'animal','genH', 'genH_highlow', 'highlow', 'patterns', 'event_time', 'epoch']
-# Pivoting the data to get u_values for each uv_component
-df_u = df_clean.pivot_table(index=index,
-                            columns='uv_components', 
-                            values='event_u_values', 
-                            aggfunc='first').reset_index()
-# Renaming columns for clarity
-df_u.columns = [str(col) + '_u' if isinstance(col, float) else col for col in df_u.columns]
-# Pivoting the data to get v_values for each uv_component
-df_v = df_clean.pivot_table(index=index,
-                            columns='uv_components', 
-                            values='event_v_values', 
-                            aggfunc='first').reset_index()
-# Renaming columns for clarity
-df_v.columns = [str(col) + '_v' if isinstance(col, float) else col for col in df_v.columns]
-# Merging the two dataframes to get the final matrix
-df_matrix = df_u.merge(df_v, on=index)
-# Removing 'events' and 'animal' columns to get the matrix
-matrix = df_matrix.drop(columns=['events', 'animal'])
-matrix.head()
-
-# ------------ CCA ------------
-
-from sklearn.cross_decomposition import CCA
-from sklearn.preprocessing import StandardScaler
-
-# Choose the first unique animal as the reference
-reference_animal = "JS21"
-df_matrix = df_matrix.reset_index()
-
-# Split the data into u and v components for CCA
-X_ref = df_matrix[df_matrix['animal'] == reference_animal].filter(like='_u')
-Y_ref = df_matrix[df_matrix['animal'] == reference_animal].filter(like='_v')
-
-# Fit the CCA model using the reference animal's data
-cca = CCA(n_components=X_ref.shape[1])
-cca.fit(X_ref, Y_ref)
-
-# Project the data of all animals onto the canonical space of the reference animal
-df_matrix_projected = df_matrix.copy()
-u_cols = [col for col in df_matrix.columns if '_u' in col]
-v_cols = [col for col in df_matrix.columns if '_v' in col]
-
-for animal in df_matrix['animal'].unique():
-    print(f'Projecting {animal} onto {reference_animal}')
-    X_animal = df_matrix[df_matrix['animal'] == animal][u_cols]
-    Y_animal = df_matrix[df_matrix['animal'] == animal][v_cols]
-    X_c, Y_c = cca.transform(X_animal, Y_animal)
-    df_matrix_projected.loc[df_matrix_projected['animal'] == animal, u_cols] = X_c
-    df_matrix_projected.loc[df_matrix_projected['animal'] == animal, v_cols] = Y_c
-df_matrix_projected.set_index(index, inplace=True)
-
-
-# Mean-center each matrix by animal
-for animal in df_matrix['animal'].unique():
-    print(f'Mean-centering {animal}')
-    animal_data = df_matrix_projected.loc[df_matrix_projected.index.get_level_values('animal') == animal]
-    mean_centered_data = StandardScaler(with_std=False).fit_transform(animal_data.values)
-    df_matrix_projected.loc[df_matrix_projected.index.get_level_values('animal') == animal] = mean_centered_data
-df_matrix.set_index(index, inplace=True)
 
 def perform_umap(df_matrix:pd.DataFrame, n_neighbors=15, min_dist=0.1,
                  n_components=2, metric='euclidean'):
@@ -426,6 +479,7 @@ def perform_umap(df_matrix:pd.DataFrame, n_neighbors=15, min_dist=0.1,
     return pd.DataFrame(embedding, columns=[f"dim_{i}" for i in range(1, n_components + 1)],
                         index=df_matrix.index)
 
+df_matrix = prep_uv_melt(df_clean)
 um =  perform_umap(df_matrix)
 um = um.reset_index()
 um_anim = perform_umap(df_matrix_projected)
@@ -550,38 +604,8 @@ plt.savefig(os.path.join(figfolder,'umap_3d_rotanim_hue=genH_highlow_col=animal.
 
 # TODO: CUT OUT DIFF GREATER THAN 1 minute
 
-# Calculate magnitude for each u and v component
-df_matrix['magnitude_u'] = np.sqrt(df_matrix['1.0_u']**2 +
-                                   df_matrix['2.0_u']**2 +
-                                   df_matrix['3.0_u']**2 +
-                                   df_matrix['4.0_u']**2 +
-                                   df_matrix['5.0_u']**2)
-df_matrix['magnitude_v'] = np.sqrt(df_matrix['1.0_v']**2 +
-                                   df_matrix['2.0_v']**2 +
-                                   df_matrix['3.0_v']**2 +
-                                   df_matrix['4.0_v']**2 +
-                                   df_matrix['5.0_v']**2)
-
-# Reset the index for the operation
-df_matrix_reset = df_matrix.reset_index()
-# Calculate the linspace for each group
-def assign_time(group, time='events'):
-    group_size = len(group)
-    first_event = group[time].iloc[0]
-    last_event = group[time].iloc[-1]
-    group['time'] = np.linspace(first_event, last_event, group_size)
-    return group
-use = 'event_time'
-df_matrix_time = df_matrix_reset.groupby(['animal', 'genH']).apply(lambda x:
-                                                                   assign_time(x, time=use))
-# Setting the new dataframe index back to its original structure
-df_matrix_time = df_matrix_time.set_index([use, 'animal', 'genH', 'genH_highlow', 'highlow', 'patterns'])
-df_matrix_time.head()
-
-
-# Subtract minimum time per animal
-df_matrix = df_matrix_time.reset_index()
-df_matrix['time'] = df_matrix['time'] - df_matrix.groupby('animal')['time'].transform('min')
+df_matrix = prep_uv_melt(df_clean)
+df_matrix = prep_uv_magnitude_over_time(df_matrix)
 
 #9 Melt the data for easy plotting
 df_melted = df_matrix.melt(id_vars=['epoch','time'], value_vars=['magnitude_u', 'magnitude_v'], var_name='component', value_name='magnitude')
@@ -593,11 +617,6 @@ g.tight_layout()
 plt.show()
 plt.close()
 
-# Define window size
-window_size = 20
-# Apply rolling mean
-df_matrix['magnitude_u_smooth'] = df_matrix.groupby(['animal', 'genH'])['magnitude_u'].transform(lambda x: x.rolling(window_size).mean())
-df_matrix['magnitude_v_smooth'] = df_matrix.groupby(['animal', 'genH'])['magnitude_v'].transform(lambda x: x.rolling(window_size).mean())
 
 df_melted = df_matrix.melt(id_vars=['time','epoch','animal','genH'], value_vars=['magnitude_u_smooth', 'magnitude_v_smooth'], var_name='component', value_name='magnitude')
 # Plot using relplot
@@ -619,12 +638,6 @@ g.tight_layout()
 plt.show()
 plt.savefig(os.path.join(figfolder,'match_to_genH_overtime_hue=component_row=animal_col=epoch.png'), dpi=300)
 plt.savefig(os.path.join(figfolder,'match_to_genH_overtime_hue=component_row=animal_col=epoch.pdf'), dpi=300)
-
-
-# Define number of bins
-num_bins = 100
-# Bin the event_time data
-df_matrix['time_bin'] = df_matrix.groupby(['animal', 'genH', 'epoch'])['time'].transform(lambda x: pd.cut(x, num_bins, labels=range(num_bins)))
 
 
 # Plot using relplot
@@ -667,3 +680,208 @@ g.set_axis_labels("Time Bin", "Magnitude")
 g.tight_layout()
 plt.show()
 
+# -----
+# BOOTSTRAPPING
+# -----
+
+from tqdm import tqdm
+
+def bootstrap_statistics(df, groups, field, statistic, n_boot=1000, ci=95):
+    """
+    Compute bootstrapped statistics for the given field grouped by the given groups.
+    """
+    
+    # Placeholder dictionaries for results
+    all_bootstraps = {}
+    cis = []
+    
+    # Iterate over each unique group
+    G = df.groupby(groups)
+    for group_values, group in tqdm(G, total=len(G)):
+        
+        # Bootstrap
+        boot_samples = []
+        for _ in range(n_boot):
+            sample = group[field].sample(len(group), replace=True)
+            
+            if statistic == 'mean':
+                boot_samples.append(sample.mean())
+            elif statistic == 'median':
+                boot_samples.append(sample.median())
+            # ... can add more statistics as needed
+            
+        # Store all bootstrapped values
+        all_bootstraps[group_values] = boot_samples
+        
+        # Compute the confidence interval
+        mean_stat = np.mean(boot_samples)
+        lower_bound = np.percentile(boot_samples, (100-ci)/2)
+        upper_bound = np.percentile(boot_samples, 100 - (100-ci)/2)
+        
+        # Append results
+        cis.append(list(group_values) + [mean_stat, lower_bound, upper_bound])
+    
+        # Convert results to dataframes
+    df_stats = pd.DataFrame(all_bootstraps).T
+    df_cis = pd.DataFrame(cis, columns=groups + ['mean', 'lower_bound', 'upper_bound'])
+    df_cis.set_index(groups, inplace=True)
+    df_cis.index.set_names(groups, inplace=True)
+    df_stats.index.set_names(groups, inplace=True)
+    df_cis.columns.set_names(['statistic'], inplace=True)
+    df_stats.columns.set_names(['boot'], inplace=True)
+    
+    return df_stats, df_cis
+
+# Compute the mean and confidence intervals for each category
+def corrected_ci_barplot(boot_stats, groups):
+    grouped = boot_stats.stack().reset_index().groupby(groups)
+    means = grouped[0].mean()
+    lower = grouped[0].apply(lambda x: np.percentile(x, 2.5))
+    upper = grouped[0].apply(lambda x: np.percentile(x, 97.5))
+
+    # Create a new dataframe with the computed statistics
+    stats_df = pd.DataFrame({
+        'mean': means,
+        'lower': lower,
+        'upper': upper
+    }).reset_index()
+
+    fig = plt.figure(figsize=(10, 5))
+    ax = fig.add_subplot(111)
+
+    # Define the width of the bars
+    width = 0.4
+
+    # Unique values of 'epoch' and 'genH'
+    epochs = stats_df['epoch'].unique()
+    genH_vals = stats_df['genH'].unique()
+
+    for i, epoch in enumerate(epochs):
+        for j, genH_val in enumerate(genH_vals):
+            # Filter the stats_df for the current epoch and genH_val
+            data_row = stats_df[(stats_df['epoch'] == epoch) & (stats_df['genH'] == genH_val)]
+            # Calculate position for the bar
+            position = i - width/2 + j*width
+            # Plot the bar
+            ax.bar(position, data_row['mean'].values[0], width=width, label=f"{genH_val if j == 0 else str()}", color=sns.color_palette()[j])
+            # Add the error bar
+            ax.errorbar(position, data_row['mean'].values[0], yerr=[[data_row['mean'].values[0] - data_row['lower'].values[0]], [data_row['upper'].values[0] - data_row['mean'].values[0]]], fmt='none', color='black')
+
+    # Set the x-ticks and labels
+    ax.set_xticks(np.arange(len(epochs)))
+    ax.set_xticklabels(epochs)
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Mean Value')
+    plt.tight_layout()
+    plt.show()
+
+def corrected_ci_barplot_v2(df, groups, hue, row):
+    grouped = df.stack().reset_index().groupby(groups)
+    means = grouped[0].mean()
+    lower = grouped[0].apply(lambda x: np.percentile(x, 2.5))
+    upper = grouped[0].apply(lambda x: np.percentile(x, 97.5))
+
+    # Create a new dataframe with the computed statistics
+    stats_df = pd.DataFrame({
+        'mean': means,
+        'lower': lower,
+        'upper': upper
+    }).reset_index()
+
+    # Define the width of the bars
+    width = 0.4
+
+    # Unique values of 'epoch', 'highlow', and 'genH'
+    epochs = stats_df['epoch'].unique()
+    highlow_vals = stats_df[hue].unique()
+    genH_vals = stats_df[row].unique()
+
+    # Create a subplot for each 'genH' value
+    fig, axes = plt.subplots(nrows=len(genH_vals), figsize=(10, 5*len(genH_vals)))
+
+    for k, genH_val in enumerate(genH_vals):
+        ax = axes[k]
+        
+        for i, epoch in enumerate(epochs):
+            for j, highlow_val in enumerate(highlow_vals):
+                # Filter the stats_df for the current epoch, highlow_val, and genH_val
+                data_row = stats_df[(stats_df['epoch'] == epoch) & 
+                                    (stats_df[hue] == highlow_val) & 
+                                    (stats_df[row] == genH_val)]
+                
+                # Calculate position for the bar
+                position = i - width/2 + j*width
+                
+                # Plot the bar
+                ax.bar(position, data_row['mean'].values[0], width=width, 
+                       label=f"{highlow_val if i == 0 and j == 0 else ''}", color=sns.color_palette()[j])
+                
+                # Add the error bar
+                ax.errorbar(position, data_row['mean'].values[0], 
+                            yerr=[[data_row['mean'].values[0] - data_row['lower'].values[0]], 
+                                  [data_row['upper'].values[0] - data_row['mean'].values[0]]], 
+                            fmt='none', color='black')
+        
+        # Set the x-ticks, labels, and title for the subplot
+        ax.set_xticks(np.arange(len(epochs)))
+        ax.set_xticklabels(epochs)
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Mean Value')
+        ax.set_title(f'genH = {genH_val}')
+        ax.legend(title=hue)
+
+    plt.tight_layout()
+    plt.show()
+
+
+df_matrix['magnitude_r'] = np.sqrt(df_matrix['magnitude_u'] ** 2 + df_matrix['magnitude_v'] ** 2)
+
+uboot_stats, uboot_cis = bootstrap_statistics(df_matrix, ['epoch', 'highlow', 'highlow_genH', 'genH_highlow', 'genH'], 'magnitude_u', 'mean', n_boot=1000, ci=95)
+uboot_stats.stack()
+# sns.catplot(data=boot_stats.stack().reset_index(), x='epoch', y=0, hue='genH',
+#             height=5, aspect=2, alpha=0.5, kind='bar')
+corrected_ci_barplot(uboot_stats, ['epoch', 'genH'])
+plt.savefig(os.path.join(figfolder,'magU_genH_overtime_hue=genH.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'magU_genH_overtime_hue=genH.pdf'), dpi=300)
+
+# sns.catplot(data=uboot_stats.stack().reset_index(), x='epoch', y=0, hue='highlow',
+#             row='genH', height=5, aspect=2, alpha=0.5, kind='bar')
+corrected_ci_barplot_v2(uboot_stats, ['epoch', 'highlow', 'genH'], 'highlow', 'genH')
+plt.savefig(os.path.join(figfolder,'magU_genH_overtime_hue=highlow_row=genH.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'magU_genH_overtime_hue=highlow_row=genH.pdf'), dpi=300)
+
+
+
+vboot_stats, vboot_cis = bootstrap_statistics(df_matrix,
+                                            ['epoch', 'highlow', 'highlow_genH', 'genH_highlow', 'genH'],
+                                            'magnitude_v', 'mean', n_boot=1000, ci=95)
+vboot_stats.stack()
+# sns.catplot(data=vboot_stats.stack().reset_index(), x='epoch', y=0, hue='genH',
+#             height=5, aspect=2, alpha=0.5, kind='bar')
+
+corrected_ci_barplot(vboot_stats, ['epoch', 'genH'])
+plt.savefig(os.path.join(figfolder,'magV_genH_overtime_hue=genH.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'magV_genH_overtime_hue=genH.pdf'), dpi=300)
+
+# sns.catplot(data=vboot_stats.stack().reset_index(), x='epoch', y=0, hue='highlow',
+#             row='genH', height=5, aspect=2, alpha=0.5, kind='bar')
+# Call the function
+corrected_ci_barplot_v2(vboot_stats, ['epoch', 'highlow', 'genH'], 'highlow', 'genH')
+plt.savefig(os.path.join(figfolder,'magV_genH_overtime_hue=highlow_row=genH.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'magV_genH_overtime_hue=highlow_row=genH.pdf'), dpi=300)
+
+
+rboot_stats, rboot_cis = bootstrap_statistics(df_matrix,
+                                            ['epoch', 'highlow', 'highlow_genH', 'genH_highlow', 'genH'],
+                                            'magnitude_v', 'mean', n_boot=1000, ci=95)
+
+corrected_ci_barplot(vboot_stats, ['epoch', 'genH'])
+plt.savefig(os.path.join(figfolder,'magR_genH_overtime_hue=genH.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'magR_genH_overtime_hue=genH.pdf'), dpi=300)
+
+# sns.catplot(data=vboot_stats.stack().reset_index(), x='epoch', y=0, hue='highlow',
+#             row='genH', height=5, aspect=2, alpha=0.5, kind='bar')
+# Call the function
+corrected_ci_barplot_v2(vboot_stats, ['epoch', 'highlow', 'genH'], 'highlow', 'genH')
+plt.savefig(os.path.join(figfolder,'magR_genH_overtime_hue=highlow_row=genH.png'), dpi=300)
+plt.savefig(os.path.join(figfolder,'magR_genH_overtime_hue=highlow_row=genH.pdf'), dpi=300)

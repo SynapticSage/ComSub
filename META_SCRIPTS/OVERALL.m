@@ -46,8 +46,18 @@ GrammPlots
 % -----------------------------
 plots.subspace.angle.Run; % do this   !!! 
 % Python plots
-py.importlib.import_module(codedefine("Notebooks","python","create_clustergram.py"));
-py.importlib.import_module(codedefine("Notebooks","python","create_graph.py"));
+% py.importlib.import_module(codedefine("Notebooks","python","create_clustergram.py"));
+% py.importlib.import_module(codedefine("Notebooks","python","create_graph.py"));
+sub = subdir(char(figuredefine("subspaceAngle","*.mat")));
+% Remove any matfiles with archive string
+sub = sub(~contains({sub.name}, "archive"));
+for i = progress(1:length(sub),'Title', 'Subspace angle plots')
+    file = sub(i).name;
+    disp("--------------------");
+    disp("TRYING " + file);
+    system("python " + codedefine("Notebooks","python","subspace_angle.py") + "  --file " + file);
+end
+
 
 % --------------
 % Python  figures

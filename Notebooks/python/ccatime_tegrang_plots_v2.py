@@ -410,16 +410,84 @@ def generate_graph_from_df(df, pvalue_field='pvalue', magnitude_field='F', signi
     
     return G
 
+
 # Visualization
-def visualize_graph(G):
-    pos = nx.spring_layout(G)  # Positioning of nodes
-    weights = [G[u][v]['weight'] for u, v in G.edges()]
-    nx.draw(G, pos, with_labels=True, width=weights, node_size=500,
-            node_color="skyblue", font_size=10)
+def visualize_graph(G, scale=0.001, zero_id=True):
+    pos = nx.spring_layout(G, iterations=20_000)
+    weights = [0 if (u==v and zero_id) else G[u][v]['weight']*scale for u, v in G.edges()]
+    nx.draw(G, pos, with_labels=True, width=weights, node_size=5,
+            node_color="skyblue", font_size=15, font_color="red", 
+            edge_cmap=plt.cm.Blues)
+    plt.title("Granger Causality Network")
+    plt.show()
+    return G
+
+# Generate a graph using the function
+plt.close('all')
+G = generate_graph_from_df(data)  # Assuming results_df is your Granger causality results dataframe
+G = visualize_graph(G)
+plt.savefig(os.path.join(plotfolder, "granger_causality_network.png"), dpi=300, bbox_inches='tight')
+plt.savefig(os.path.join(plotfolder, "granger_causality_network.pdf"), dpi=300, bbox_inches='tight')
+
+plt.close('all')
+for lag in sorted(data.lag.unique()):  # Assuming data is your time series data
+    plt.figure()
+    G = generate_graph_from_df(data.query(f'lag == {lag}'))
+    G = visualize_graph(G)
+    plt.pause(0.5)
+    plt.suptitle(f'Granger Causality Network (lag={lag})')
+    plt.savefig(os.path.join(plotfolder, f"granger_causality_network_lag_{lag}.png"), dpi=300, bbox_inches='tight')
+
+
+
+# ================== GRAPHS WITH STATIC NODES ===================================
+
+def generate_graph_from_df(df, pvalue_field='pvalue', magnitude_field='F', significance_level=0.05):
+    """
+    Generate a directed graph based on Granger causality results.
+    
+    Parameters:
+    - df: DataFrame containing Granger causality results.
+    - pvalue_field: column name for p-values to determine edges.
+    - magnitude_field: column name for edge weights.
+    - significance_level: significance level for p-value to consider an edge.
+    
+    Returns:
+    - G: A networkx DiGraph.
+    """
+    G = nx.DiGraph()
+    for _, row in df.iterrows():
+        source = row['column1']
+        target = row['column2']
+        if row[pvalue_field] < significance_level:
+            G.add_edge(source, target, weight=row[magnitude_field])
+    return G
+
+def visualize_graph(G, pos, scale=0.001, zero_id=True):
+    weights = [0 if (u == v and zero_id) else G[u][v]['weight'] * scale for u, v in G.edges()]
+    nx.draw(G, pos, with_labels=True, width=weights, node_size=5, 
+            node_color="skyblue", font_size=15, font_color="red", 
+            edge_cmap=plt.cm.Blues)
     plt.title("Granger Causality Network")
     plt.show()
 
-# Generate a graph using the function
-G = generate_graph_from_df(data)  # Assuming results_df is your Granger causality results dataframe
-visualize_graph(G)
+# Compute the overall node positions
+full_graph = generate_graph_from_df(data)
+positions = nx.spring_layout(full_graph, iterations=20_000)
 
+# Visualize the overall graph
+plt.figure()
+visualize_graph(full_graph, positions)
+
+# Visualize lag-specific graphs
+mng = plt.get_current_fig_manager()
+plt.figure()
+sz = mng.window.screen().size()
+for lag in sorted(data.lag.unique()):
+    plt.clf()
+    lag_graph = generate_graph_from_df(data.query(f'lag == {lag}'))
+    visualize_graph(lag_graph, positions)
+    mng.resize(sz.width(), sz.height())
+    plt.suptitle(f'Granger Causality Network (lag={lag})')
+    plt.savefig(os.path.join(plotfolder, f"stable_granger_causality_network_lag_{lag}.png"), dpi=300, bbox_inches='tight')
+    plt.pause(0.5)

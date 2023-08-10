@@ -164,8 +164,8 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Event analysis')
             event_values_N(w,j,:)      = repmat(Opt.N,1,Opt.N);
             % figure out how many nans
             % arrayfun(@(x) sum(isnan(event_v_values(:,x,:)),'all'), 1:size(event_v_values,2))
-            event_mua(w,j)       = mean([area1_spikes, area2_spikes],2);
-            event_mua_var(w,j)   = var([area1_spikes, area2_spikes],0,2);
+            event_mua(w,j)       = mean(mean([area1_spikes; area2_spikes],1));
+            event_mua_var(w,j)   = mean(var([area1_spikes; area2_spikes],0,1));
             event_u{w,j}         = u;
             event_v{w,j}         = v;
             event_time(w,j)      = center_time;

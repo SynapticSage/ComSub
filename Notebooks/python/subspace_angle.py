@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import colors
 import networkx as nx
+import os
 
 # Argument parser
 parser = argparse.ArgumentParser(description="Load and process .mat file for neural data analysis.")
@@ -24,8 +25,15 @@ base, ext  = os.path.splitext(basename)
 figfolder = os.path.join(folder, base)
 if not os.path.exists(figfolder):
     os.makedirs(figfolder)
+plt.ion()
 
 if __name__ == "__main__":
+
+    if 'frobDist' not in data:
+        print("Frob dist not in data")
+        os._exit(0)
+    else:
+        print(f"PLOTTING {args.file}")
 
     # Extract the variables
     subspaceDist = data['subspaceDist']
@@ -369,4 +377,6 @@ if __name__ == "__main__":
 
     # Running the function for the subspaceDf dataframe
     G = plot_network_graph(subspaceDf)
-    plot_network_graph(frobDf)
+    plt.savefig(os.path.join(figfolder, "graph_subspace"))
+    G = plot_network_graph(frobDf)
+    plt.savefig(os.path.join(figfolder, "graph_frobdist"))
