@@ -7,10 +7,12 @@ function savedat(Patterns_overall, Spk, behavior, Option, figAppend)
     % Convert behavior table to pandas DataFrame
     behavior_dict = table2struct(behavior, 'ToScalar', true);
     behavior_names = behavior.Properties.VariableNames;
+    if ~exist(figuredefine("data"), 'dir')
+        mkdir(figuredefine("data"));
+    end
     file = figuredefine("data", figAppend + ".mat");
     disp("Saving data to " + file);
-    save(file, 'spikeRateMatrix', ...
-    'areaPerNeuron', 'srm_time', ...
+    save(file, 'spikeRateMatrix', 'areaPerNeuron', 'srm_time', ...
     'U', 'V', 'uv_time', 'Option', 'behavior_dict', 'behavior_names');
 end
 

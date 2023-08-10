@@ -9,6 +9,7 @@ from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 import itertools
 
+# - - - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - - 
 # Set the flag for shading the confidence intervals to False
 # - - - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - - 
 # - - - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - - 
@@ -21,15 +22,16 @@ ci = True
 column_trajbounds = [0, 1]
 
 # Update the components for each row of the subplot grid
-row_components = [["U1", "U2", "U3"], ["V1", "V2", "V3"], ["Cavgtheta",
-                                                           "S1theta",
-                                                           "S2theta",
-                                                           "wpli_avgtheta"],
+row_components = [["U1", "U2", "U3"], ["V1", "V2", "V3"], 
+                  ["U1a", "U2a", "U3a"], ["V1a", "V2a", "V3a"],
+                  ["Cavgtheta", "S1theta", "S2theta", "wpli_avgtheta"],
                   ["Cavgdelta", "S1delta", "S2delta", "wpli_avgdelta"],
                   ["Cavgripple", "S1ripple", "S2ripple", "wpli_avgripple"]]
 
-
+                             
 component_colors = {
+    "U1a": "darkred", "U2a": "red", "U3a": "lightcoral",
+    "V1a": "darkblue", "V2a": "blue", "V3a": "lightblue",
     "U1": "darkred", "U2": "red", "U3": "lightcoral",
     "V1": "darkblue", "V2": "blue", "V3": "lightblue",
     "Cavgtheta": "black", "Cavgdelta": "black", "Cavgripple": "black",
@@ -40,7 +42,9 @@ component_colors = {
 
 component_fill_bases = {
     "U1": 0, "U2": 1, "U3": 2,
+    "U1a": 0, "U2a": 1, "U3a": 2,
     "V1": 0, "V2": 1, "V3": 2,
+    "V1a": 0, "V2a": 1, "V3a": 2,
     "Cavgtheta": 0, "Cavgdelta": 0, "Cavgripple": 0,
     "S1theta": 1, "S1delta": 1, "S1ripple": 1,
     "S2theta": 1, "S2delta": 1, "S2ripple": 1,
@@ -56,6 +60,8 @@ component_fill_bases = {k: v * between_scale for k, v in component_fill_bases.it
 scale = 2
 
 line_styles = {
+    "U1a": "-", "U2a": "-", "U3a": "-",
+    "V1a": "-", "V2a": "-", "V3a": "-",
     "U1": "-", "U2": "-", "U3": "-",
     "V1": "-", "V2": "-", "V3": "-",
     "Cavgtheta": "-", "Cavgdelta": "-", "Cavgripple": "-",
@@ -95,14 +101,19 @@ def label_epochs(df, time_col='time', time_threshold=4):
 # Test the function on your dataframe
 df = df.sort_values(['time','animal']).groupby('animal').apply(label_epochs).reset_index()
 
+for uv in ["U1", "U2", "U3", "V1", "V2", "V3"]:
+    df[f"{uv}a"] = np.abs(df[f"{uv}"])
+
 # Number of bins and bootstrap samples
 n_bins = 45
 n_bootstrap_samples = 500
 
 # Update the columns to bootstrap
-columns_to_bootstrap = ["U1", "U2", "U3", "V1", "V2", "V3", "Cavgtheta", 
-                        "Cavgdelta", "Cavgripple", "S1theta", "S1delta", 
-                        "S2theta", "wpli_avgtheta", "S1ripple", "S2ripple",
+columns_to_bootstrap = ["U1", "U2", "U3", "V1", "V2", "V3", 
+                        "U1a", "U2a", "U3a", "V1a", "V2a", "V3a",
+                        "Cavgtheta", "Cavgdelta", "Cavgripple", 
+                        "S1theta", "S1delta", "S2theta", 
+                        "wpli_avgtheta", "S1ripple", "S2ripple",
                         "S2delta", "wpli_avgripple", "wpli_avgdelta"]
 
 # Reinitialize the DataFrame to hold the results
@@ -290,4 +301,5 @@ if not os.path.exists(figfolder):
 plt.savefig(figfolder + f'lindist_bootstrap{append}_{field}_balancedanim_collapseanimals.png', dpi=300)
 plt.savefig(figfolder + f'lindist_bootstrap{append}_{field}_balancedanim_collapseanimals.svg', dpi=300)
 plt.savefig(figfolder + f'lindist_bootstrap{append}_{field}_balancedanim_collapseanimals.pdf', dpi=300)
+
 

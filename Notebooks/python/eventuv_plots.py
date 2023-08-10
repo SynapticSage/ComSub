@@ -140,6 +140,8 @@ def scale(series):
     return scaler.fit_transform(series.values.reshape(-1, 1)).ravel()
 
 def label_epochs(df, time_col='event_time', time_threshold=60*10):
+    # Order
+    df = df.sort_values(time_col)
     # Calculate time difference
     df.loc[:,'time_diff'] = df[time_col].diff()
     # Initialize the epoch column with 0
@@ -151,8 +153,11 @@ def label_epochs(df, time_col='event_time', time_threshold=60*10):
     # Drop the time_diff column as we don't need it anymore
     df.drop(columns=['time_diff'], inplace=True)
     return df
-# Test the function on your dataframe
-df = df.sort_values(['event_time','animal']).groupby('animal').progress_apply(label_epochs).reset_index()
+df = (df.sort_values(['event_time','animal'])
+      .groupby('animal').progress_apply(label_epochs)
+      .rename(columns={'animal': 'animal_new'})
+      .reset_index())
+
 
 # Remove rows with NaN in 'event_u_values' or 'event_v_values'
 df_clean = df.dropna(subset=['event_u_values', 'event_v_values'])
@@ -681,9 +686,8 @@ g.tight_layout()
 plt.show()
 
 # -----
-# BOOTSTRAPPING
+# BOOTSTRAPPING match levels
 # -----
-
 from tqdm import tqdm
 
 def bootstrap_statistics(df, groups, field, statistic, n_boot=1000, ci=95):
@@ -885,3 +889,9 @@ plt.savefig(os.path.join(figfolder,'magR_genH_overtime_hue=genH.pdf'), dpi=300)
 corrected_ci_barplot_v2(vboot_stats, ['epoch', 'highlow', 'genH'], 'highlow', 'genH')
 plt.savefig(os.path.join(figfolder,'magR_genH_overtime_hue=highlow_row=genH.png'), dpi=300)
 plt.savefig(os.path.join(figfolder,'magR_genH_overtime_hue=highlow_row=genH.pdf'), dpi=300)
+
+
+# Call the function with both row and col arguments
+corrected_ci_barplot_v3(boot_stats, ['epoch', 'highlow', 'genH'], 'highlow', row='genH', col=None)  # Adjust the 'col' argument as needed
+
+
