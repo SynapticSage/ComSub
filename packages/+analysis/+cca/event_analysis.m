@@ -207,4 +207,7 @@ t = table.analyses.eventuv(out, [], [], [], Opt.scalar_struct);
 tmp = Option.patternNames(t.patterns);
 t.patternNames = tmp(:);
 assert(numel(unique(t.uv_components)) > 1, "Only one uv component found. Check your data.")
-parquetwrite(fullfile(tablefolder, "eventuv" + tabappend + ".parquet"), t);
+if ~exist(figuredefine("tables"), 'dir')
+    mkdir(figuredefine("tables"))
+end
+parquetwrite(figuredefine("tables", "eventuv" + tabappend + ".parquet"), t);

@@ -36,21 +36,22 @@ PreambFigs; % Setup for figures
 % -------------------------------------------------------
 SemedoPaperFigures_m
 
-% -----------------------------
+% -------------------------------------------------
 % Grammer of graphics summaries
-% -----------------------------
+% -------------------------------------------------
 GrammPlots
 
-% -----------------------------
+% -------------------------------------------------
 % Subspace angle 
-% -----------------------------
+% -------------------------------------------------
 plots.subspace.angle.Run; % do this   !!! 
 % Python plots
 % py.importlib.import_module(codedefine("Notebooks","python","create_clustergram.py"));
 % py.importlib.import_module(codedefine("Notebooks","python","create_graph.py"));
 sub = subdir(char(figuredefine("subspaceAngle","*.mat")));
 % Remove any matfiles with archive string
-sub = sub(~contains({sub.name}, "archive"));
+sub = sub(~contains({sub.name}, "archive") ...
+        & contains({sub.name}, "coh"));
 for i = progress(1:length(sub),'Title', 'Subspace angle plots')
     file = sub(i).name;
     disp("--------------------");
@@ -59,20 +60,20 @@ for i = progress(1:length(sub),'Title', 'Subspace angle plots')
 end
 
 
-% --------------
+% -----------------------------------------------------
 % Python  figures
-% --------------
+% -----------------------------------------------------
 script1 = ...
-py.importlib.import_module(codedefine("Notebooks","python","dimPred.py"));
+py.importlib.import_module(codedefine("Notebooks","python","dimPred.py")); % from PreambFigs
 script2 = ...
-py.importlib.import_module(codedefine("Notebooks","python","prediction.py"));
+py.importlib.import_module(codedefine("Notebooks","python","prediction.py")); % from PreambFigs
 script3 = ...
-py.importlib.import_module(codedefine("Notebooks","python","ccatime.py"));
+py.importlib.import_module(codedefine("Notebooks","python","ccatime.py")); % from TheScript
 script4 = ...
-py.importlib.import_module(codedefine("Notebooks","python","uvevents_combine.py"));
+py.importlib.import_module(codedefine("Notebooks","python","uvevents_combine.py")); % from TheScript
 script5 = ...
-py.importlib.import_module(codedefine("Notebooks","python","uvevents_plot.py"));
-% ----------------------------------------------
+py.importlib.import_module(codedefine("Notebooks","python","uvevents_plot.py")); % from TheScript
+% ------------------------------------------------------
 
 
 tic; load RunsSummary.mat; toc

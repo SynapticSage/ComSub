@@ -119,7 +119,7 @@ subset = pfcsubset.generateH == "fromSpectral  fromRipTimes" & ~pfcsubset.singul
 g1 = gramm(  'subset', subset,...
             'x', x1,...
             'y', y1,...
-            'color', categorical(hpcsubset.patternAbstract),...
+            'color',     categorical(hpcsubset.patternAbstract),...
             'lightness', categorical(hpcsubset.control));
 
 
@@ -159,4 +159,143 @@ g2.set_names('x', 'HPC regional dimensions', ...
 g2.axe_property('XTickLabelRotation',35)        
 g2.draw()
 
+% ============================================================
+% DIMENSION BAR PLOTS
+% ============================================================
+% Given Table T
+fig('Barplot of percMax_rrDim -- genH == power'); clf;
+% Create a gramm object
+g = gramm('x', categorical(T.patternAbstractSymbol), 'y', T.percMax_rrDim,...
+'color', categorical(T.directionality),...
+'subset', T.genH_name == "coherence" & T.control == "pattern activity");
+g.set_title('Barplot of percMax_rrDim');
+
+% Set summary statistics for barplot
+g.stat_summary('type', 'ci', 'geom', 'bar', 'dodge', 1, 'setylim', true); 
+
+% Aesthetics
+g.set_names('x', 'Pattern Abstract Symbol', 'y', 'percMax_rrDim', 'color', 'Directionality');
+g.axe_property('XTickLabelRotation', 45); % Rotate x-labels if necessary
+
+% Draw the plot
+g.draw();
+
+% Given Table T
+fig('animal: Barplot of percMax_rrDim -- genH == power'); clf;
+% Create a gramm object
+g = gramm('x', categorical(T.patternAbstractSymbol), 'y', T.percMax_rrDim,...
+'color', categorical(T.directionality),...
+'subset', T.genH_name == "coherence" & T.control == "pattern activity");
+g.facet_wrap(categorical(T.animal));
+g.set_title('Barplot of percMax_rrDim');
+
+% Set summary statistics for barplot
+g.stat_summary('type', 'ci', 'geom', 'bar', 'dodge', 1, 'setylim', true); 
+
+% Aesthetics
+g.set_names('x', 'Pattern Abstract Symbol', 'y', 'percMax_rrDim', 'color', 'Directionality');
+g.axe_property('XTickLabelRotation', 45); % Rotate x-labels if necessary
+
+% Draw the plot
+g.draw();
+
+load RunsSummary
+load DetailedRunsSummary
+% Convert the timestamp string to datetime format
+DetailedRunsSummary.datetime = datetime(DetailedRunsSummary.timestamp, 'InputFormat', 'dd-MMM-yyyy HH:mm:ss');
+
+% Sort the table based on datetime
+DetailedRunsSummary = sortrows(DetailedRunsSummary, 'datetime');
+
+% Get unique directionality values
+uniqueDirections = unique(DetailedRunsSummary.directionality);
+
+% Create a color map for the different directionality values
+colorMap = lines(length(uniqueDirections));
+
+figure;
+hold on;
+
+% Loop over unique directionality values and plot them
+for i = 1:length(uniqueDirections)
+    % Logical index for current directionality
+    idx = DetailedRunsSummary.directionality == uniqueDirections(i);
+    
+    % Plot the datetime versus percMax_rrDim for this directionality
+    markersize = 5;
+    if uniqueDirections(i) == "hpc-hpc"
+        markersize = 12;
+    end
+    plot(DetailedRunsSummary.datetime(idx), DetailedRunsSummary.percMax_rrDim(idx), '-o', 'Color', colorMap(i,:), 'MarkerSize', markersize);
+
+end
+
+xlabel('Date');
+ylabel('percMax_rrDim');
+title('Variation of percMax_rrDim over Time by Directionality');
+grid on;
+
+ax = gca;
+ax.XTickFormat = 'dd-MMM-yyyy';
+xtickangle(45);
+
+% Add a legend
+legend(string(uniqueDirections), 'Location', 'best');
+
+% ============================================================
+
+
+% Get unique animal and directionality values
+uniqueAnimals = unique(DetailedRunsSummary.animal);
+uniqueDirections = unique(DetailedRunsSummary.directionality);
+
+% Create a color map for the different directionality values
+colorMap = lines(length(uniqueDirections));
+
+figure;
+
+% Loop over unique animal values
+for a = 1:length(uniqueAnimals)
+    % Logical index for current animal
+    idx_animal = DetailedRunsSummary.animal == uniqueAnimals(a);
+    
+    % Create a subplot for this animal
+    subplot(length(uniqueAnimals), 1, a);
+    hold on;
+    
+    % Extract the subset of the table for this animal
+    subTable = DetailedRunsSummary(idx_animal, :);
+    
+    % Loop over unique directionality values and plot them
+    for i = 1:length(uniqueDirections)
+        % Logical index for current directionality
+        idx_direction = subTable.directionality == uniqueDirections(i);
+        
+        markersize = 5;
+        if uniqueDirections(i) == "hpc-hpc"
+            markersize = 12;
+        end
+        % Plot the datetime versus percMax_rrDim for this directionality
+        plot(subTable.datetime(idx_direction), subTable.percMax_rrDim(idx_direction), '-o', 'Color', colorMap(i,:), 'MarkerSize', markersize);
+    end
+
+    xlabel('Date');
+    ylabel('percMax_rrDim');
+    title(['Animal: ' uniqueAnimals{a}]);
+    grid on;
+
+    ax = gca;
+    try
+    ax.XTickFormat = 'dd-MMM-yyyy';
+    catch
+    end
+    xtickangle(45);
+    
+    % If it's the last subplot, add a legend
+    if a == length(uniqueAnimals)
+        legend(string(uniqueDirections), 'Location', 'best');
+    end
+end
+
+figure;histogram(T.percMax_rrDim(T.directionality=="hpc-hpc" & T.preProcess_zscore==1));hold on;;histogram(T.percMax_rrDim(T.directionality=="hpc-pfc" & T.preProcess_zscore==1))
 

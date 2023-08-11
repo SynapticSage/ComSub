@@ -10,17 +10,27 @@ table.combineAndUpdateTables("RunsSummary_*", "RunsSummary");
 load("RunsSummary.mat", "RunsSummary");
 
 % show all genH_name == wpli columns
-RunsSummary(contains(RunsSummary.genH_name, "wpli"), ["animal", "genH_name","preProcess_zscore", "hash", "timestamp"])
+RunsSummary(contains(RunsSummary.genH_name, "wpli"),... 
+["animal", "genH_name","preProcess_zscore", "hash", "timestamp"])
 
 %% load
 multi_epoch = false; % usually first 3, last 3 epochs
 zscr        = true; % zscored or not
+midpattern  = false; % midpattern or not
 load("RunsSummary.mat");
 disp(" ---->  Multi epoch: " + multi_epoch)
 disp(" ---->  Zscored: " + zscr)
-if zscr == false
+if zscr == false && midpattern == false
     figuredefine("-permfolder", "zscore=false");
     figuredefine("-creation", true);
+elseif midpattern == true && zscr == false
+    figuredefine("-permfolder", "zscore=false_midpattern=true");
+    figuredefine("-creation", true);
+elseif midpattern == true && zscr == true
+    figuredefine("-permfolder", "midpattern=true");
+    figuredefine("-creation", true);
+elseif midpattern == false && zscr == true
+    % nothing, default state
 else
     figuredefine("-clearpermfolder")
 end
@@ -28,6 +38,11 @@ if zscr
     disp("USING ZSCORE");
     disp("USING ZSCORE");
     disp("USING ZSCORE");
+end
+if midpattern
+    disp("USING MIDPATTERN");
+    disp("USING MIDPATTERN");
+    disp("USING MIDPATTERN");
 end
 
 % TABLE : ACQUIRE RUNS
@@ -41,6 +56,7 @@ filtstring = ...
        "$preProcess_zscore=="+zscr,...
        ..."$numPartition==50",...
        "$quantileToMakeWindows == 0.85",...
+       "$midpattern=="+midpattern,...
        "arrayfun(@(x)isequal($winSize(x,:), [0,0.3]), 1:size($winSize,1))'"];
 % Get the proper keys
 matching_runs = query.getHashed_stringFilt(RunsSummary, filtstring,...

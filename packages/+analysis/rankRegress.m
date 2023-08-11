@@ -161,7 +161,7 @@ for n = progress(1:numel(Patterns), 'Title', 'RankRegress')
                                    numDimsUsedForPrediction);
             catch
                 dim_singleprediction{k} = nan;
-                B_singleprediction{k} = []
+                B_singleprediction{k} = [];
             end
         end
 

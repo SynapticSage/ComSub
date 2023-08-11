@@ -21,6 +21,7 @@ ip.addParameter('folder', "triggered_spectrogram", @(x) isstring(x));
 ip.addParameter('quantile_threshold', 0.95, @isnumeric);
 ip.addParameter('runtype', 1, @isnumeric); % 1 = run, 0 = rest
 ip.addParameter('boots', 0, @isnumeric);
+ip.addParameter('based_on', "mean");
 ip.parse(varargin{:});
 Opt = ip.Results;
 Opt.folder = string(Opt.folder) + "_run=" + Opt.runtype + filesep;
@@ -89,20 +90,44 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Patterns')
     assert(numel(sp_time) == size(u,1), ... 
         'Spike time and u must be the same length');
 
+    ustd = movstd(u, 7);
+    vstd = movstd(v, 7);
+
     % Calculate the quantile threshold for u and v
     u_threshold = quantile(u, quantile_threshold);
     v_threshold = quantile(v, quantile_threshold);
 
     % Find the time bins where u or v cross their respective thresholds
-    u_above_threshold = u > u_threshold;
-    v_above_threshold = v > v_threshold;
+    if Opt.based_on == "mean"
+        u_above_threshold = u > u_threshold;
+        v_above_threshold = v > v_threshold;
+        all_threshold_crossed = u_above_threshold & v_above_threshold;
+    elseif Opt.based_on == "std"
+        u_stdthresh           = ustd > quantile(ustd, quantile_threshold);
+        v_stdthersh           = vstd > quantile(vstd, quantile_threshold);
+        all_threshold_crossed = u_stdthresh & v_stdthersh;
+    elseif Opt.based_on == "std_u"
+        u_stdthresh           = ustd > quantile(ustd, quantile_threshold);
+        all_threshold_crossed = u_stdthresh;
+    elseif Opt.based_on == "std_v"
+        v_stdthersh           = vstd > quantile(vstd, quantile_threshold);
+        all_threshold_crossed = v_stdthersh;
+    elseif Opt.based_on == "mean_and_std"
+        u_above_threshold = u > u_threshold;
+        u_stdthresh       = ustd > quantile(ustd, quantile_threshold);
+        v_above_threshold = v > v_threshold;
+        v_stdthersh       = vstd > quantile(vstd, quantile_threshold);
+        all_threshold_crossed = (u_above_threshold & v_above_threshold) & ...
+                                (u_stdthresh & v_stdthersh);
+    else
+        error("Invalid value for Opt.based_on: " + Opt.based_on);
+    end
 
     if isempty(Patterns_overall(i).nameFull)
         name = Patterns_overall(i).name;
     else
         name = Patterns_overall(i).nameFull;
     end
-    all_threshold_crossed = u_above_threshold & v_above_threshold;
 
     for comp = progress(Opt.components(:)','Title','Components')
 
@@ -125,7 +150,7 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Patterns')
         % spike_indices = both(:,2);
         % Find start/stop times for spike windows
         inds_starts = efizz_indices-window_size;
-        inds_stops = efizz_indices+window_size;
+        inds_stops  = efizz_indices+window_size;
         % Throw away out of bounds indices
         both = both(inds_starts > 0 & inds_stops <= length(efizz.t),:);
         efizz_indices = both(:,1);

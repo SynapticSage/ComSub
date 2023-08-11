@@ -19,6 +19,7 @@ function out = combineAndUpdateTables(regex, finalFile)
     else
         out = table();
     end
+    out = table.hackyconversions(out);
 
     % Get a list of the new table files
     newFiles = dir(codedefine("DATA_TABLES", regex));
@@ -38,6 +39,7 @@ function out = combineAndUpdateTables(regex, finalFile)
         fields = fieldnames(newTable);
         assert(numel(fields) == 1);
         newTable = newTable.(fields{1});
+        newTable = table.hackyconversions(newTable);
 
         % Align the existing table and the new table
         [out, newTable] = table.alignTables(out, newTable);
@@ -73,4 +75,9 @@ function out = combineAndUpdateTables(regex, finalFile)
     finalFile = replace(finalFile, '.mat', '');
     out = struct(finalFile, out);
     save(finalFile, '-struct', 'out');
+    
+    % Delete all the tables used
+    for i = 1:length(newFiles)
+        delete(fullfile(newFiles(i).folder, newFiles(i).name));
+    end
 end
