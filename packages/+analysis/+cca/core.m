@@ -21,9 +21,22 @@ function [results] = core(x_area1, x_area2, varargin)
 % ip.parse(varargin{:});
 % opt = ip.Results;
 d=@double;
+usecv = true;
 
 % run cca
-[a, b, r, u, v, stats] = canoncorr(d(x_area1)', d(x_area2)');
+if ~usecv
+    [a, b, r, u, v, stats] = canoncorr(d(x_area1)', d(x_area2)');
+    R = nan;
+else
+    out = analysis.cca.cvcca(d(x_area1)', d(x_area2)');
+    u = out.U;
+    v = out.V;
+    a = out.A;
+    b = out.B;
+    stats = out.pval;
+    R = out.val;
+    r = diag(R);
+end
 
 % correlation between the first scores
 cross_area_corr = corr(u(:,1), v(:,1));
@@ -36,6 +49,7 @@ results = struct(...
     'a', a, ...
     'b', b, ...
     'r', r, ...
+    'R', R, ...
     'u', u, ...
     'v', v, ...
     'stats', stats, ...

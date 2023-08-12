@@ -3,10 +3,10 @@ function [RunsSummary, DetailedRunsSummary] = savetables(Events, Patterns, Optio
 % Ready the path
 table_folder = fullfile(codedefine(), 'DATA_TABLES');
 if ~exist(table_folder, 'dir')
-mkdir(table_folder);
+    mkdir(table_folder);
 end
 if ~ismember(table_folder, path)
-addpath(table_folder);
+    addpath(table_folder);
 end
 
 %% RunsSummary: Abbreviated summary of results for runs
@@ -36,8 +36,8 @@ timestamp = string(datetime());
 % Determine information to add to table
 Optim=params.getOptimizationParams(Patterns,Events,Option);
 Optimtable=struct2table(Optim);
-Optimtable.timestamp = timestamp;
-Optimtable.hash = hash;
+Optimtable.timestamp     = timestamp;
+Optimtable.hash          = hash;
 Optimtable.numWindowsCut = Events.nWindows;
 Optimtable.cutoffs       = Events.cutoffs;
 

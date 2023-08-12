@@ -49,7 +49,7 @@ function resultTable = ccatime(Components_overall, Spk, varargin)
                 {'pattern', 'genH', 'direction'});
             UVTable = [UVTable, strtable];
 
-            field_strip = nd.flexrmfield(Components_overall(i, j), {'X_source', 'X_target', 'rankRegress', 'factorAnalysis', 'jpecc', 'cca', 'event_anal','index_source','index_target','source','target', 'X_time','regress'})
+            field_strip = nd.flexrmfield(Components_overall(i, j), {'X_source', 'X_target', 'rankRegress', 'factorAnalysis', 'jpecc', 'cca', 'event_anal','index_source','index_target','source','target', 'X_time','regress'});
 
             % Repeat the scalar fields to match the size of the U and V data
             scalarFields = structfun(@num2str, field_strip, ...

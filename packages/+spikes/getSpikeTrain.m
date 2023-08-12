@@ -224,17 +224,18 @@ end
 
 startStop = getEpochTimes(animal);
 sessionTypePerBin = zeros(1,numel(timeBinMidPoints));
+epochPerBin = zeros(1,numel(timeBinMidPoints));
 %%
 for i = 1:numel(timeBinMidPoints)
     currTime = timeBinMidPoints(i);
     for j = 1:size(startStop,2)
         if currTime >= startStop(1,j) && currTime < startStop(2,j)
             if mod(j,2) == 0 
-                
                 sessionTypePerBin(i) = 1;
             else
                 sessionTypePerBin(i) = 0;
             end
+            epochPerBin(i) = j;
         end
     end
 end
@@ -247,5 +248,6 @@ out.times_spiking = times_spiking;
 out.areaPerNeuron = areaPerNeuron;
 out.cell_index = cell_index;
 out.sessionTypePerBin = sessionTypePerBin;
+out.epochPerBin = epochPerBin;
 
 disp("...done " + toc + " seconds")

@@ -146,6 +146,7 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Event analysis')
                 trajbound = behavior.trajbound(behtimes);
                 correct   = behavior.rewarded(behtimes);
             else
+                ecnt = ecnt+1;
                 epoch     = nan;
                 lindist   = nan;
                 vel       = nan;
@@ -177,7 +178,7 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Event analysis')
         end
     end
     disp("...done")
-    disp("fraction of empty events: " + num2str(ecnt/numel(Events.cellOfWindows)))
+    disp("fraction of empty events: " + num2str(ecnt/sum(cellfun(@length, Events.cellOfWindows(p)))))
     % Store the CCA r-values and canonical variates for this pattern
     out(i{:}).event_r_values = event_r_values;
     out(i{:}).event_u_values = event_u_values;

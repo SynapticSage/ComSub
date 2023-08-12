@@ -21,9 +21,17 @@ else
     disp("Option struct is: ")
     disp(Option)
 end
+hash = store.gethash(Option);
+disp("Hash is: " + hash)
+if ~exist('RunsSummary','var')
+    load RunsSummary
+    if ismember(hash, RunsSummary.hash), disp("config exists!")
+    else, disp("new configuration")
+    end
+end
 %%%%%%%%%%%%%%%% DISPLAY OUR OPTIONS TO USER %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if isequal(Option.loadifexists, false) && ...
-    exist(store.gethash(Option) + ".mat", 'file')
+    exist(hash + ".mat", 'file')
     disp("Loading from file: " + store.gethash(Option) + ".mat")
     m = matfile(store.gethash(Option) + ".mat");
     % m = matfile("bef0923.mat", "Writable", true);
@@ -162,9 +170,11 @@ if Option.analysis.cca % 🔀
     % Event analysis ------------------------------------------------------
     % (append cca commsub levels during events)
     % 藺
-    event_anal   = ... 
+    event_anal  = ... 
          analysis.cca.event_analysis(Patterns_overall, Spk, Events, Option, behavior);
-    plots.plot_event_values(event_anal(2,7), 'figAppend', figAppend);
+    for i = 1:Option.nPatternAndControl+1
+        plots.plot_event_values(event_anal(2,i), 'figAppend', figAppend + "_i");
+    end
     Components_overall = ... 
          nd.fieldSet(Components_overall, 'event_anal', event_anal);
     % ---------------------------------------------------------------------
@@ -194,7 +204,7 @@ if Option.analysis.cca % 🔀
     save(figuredefine("data", "trigspec_" + figAppend), "Option", "triggered_spectrogram_run");
     dcnt=0;
     % 藺 regress
-    tic
+    tic;
     for d = progress([inf], 'Title', 'Regress-faxis'); dcnt=dcnt+1;
         for i = progress(1:size(Patterns_overall,2), 'Title', 'Regress')
             for f = progress(["phi","S1","S2","Cavg","wpli_avg"],'Title', 'Regress-field')

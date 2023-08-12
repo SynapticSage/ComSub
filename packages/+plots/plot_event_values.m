@@ -4,6 +4,7 @@ function plot_event_values(out_struct, varargin)
 
 ip = inputParser;
 ip.addParameter('figAppend', '', @(x) ischar(x) || isstring(x));
+ip.addParameter('sample', 800, @(x) isnumeric(x) && isscalar(x));
 ip.parse(varargin{:});
 Opt = ip.Results;
 
@@ -43,6 +44,9 @@ for row = 1:numRows
         % Get the u and v values for this row and column
         u_values = squeeze(event_u_values(row, :, col));
         v_values = squeeze(event_v_values(row, :, col));
+        inds = randperm(numSamples);
+        u_values = u_values(inds);
+        v_values = v_values(inds);
         points_u{row, col} = u_values;
         points_v{row, col} = v_values;
 
@@ -75,7 +79,7 @@ qlim_y = quantile(vq(:), [0.001 0.999]);
 
 linkaxes(ha, 'xy');
 set(findobj(gcf,'type','axes'),'XLim',qlim_x,'YLim',qlim_y);
-% set(gcf, 'Position', get(0, 'Screensize'));
+set(gcf, 'Position', get(0, 'Screensize'));
 pos=get(gcf, 'Position');
 set(gcf, 'Position', [pos(1) pos(2) pos(3)*1.5 pos(4)*1.5]);
 if ~exist(figuredefine("cca_eventanal"), 'dir')

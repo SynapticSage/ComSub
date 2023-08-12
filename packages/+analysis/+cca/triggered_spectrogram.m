@@ -84,6 +84,7 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Patterns')
     pfc = Spk.areaPerNeuron == "PFC";
     source = Spk.spikeRateMatrix(ca1, runs);
     target = Spk.spikeRateMatrix(pfc, runs);
+    epochs = Spk.epochPerBin(runs);
     u = source' * a;
     v = target' * b;
     sp_time = Spk.timeBinMidPoints(runs);
@@ -177,6 +178,7 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Patterns')
         u_segments       = nan(total_sp_win_size, size(u, 2), length(efizz_indices));
         v_segments       = nan(total_sp_win_size, size(v, 2), length(efizz_indices));
         sp_time_segments = nan(total_sp_win_size, length(efizz_indices));
+        epoch_segments   = nan(total_sp_win_size, length(efizz_indices));
 
         % For each efizz index, grab the data in a window around that index
         % for j = progress(1:min(size(both,1),10),'Title','Extracting efizz data')
@@ -204,6 +206,8 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Patterns')
                     u(spike_index-sp_win_size:spike_index+sp_win_size, :);
                 v_segments(:,:,j) = ...
                     v(spike_index-sp_win_size:spike_index+sp_win_size, :);
+                epoch_segments(:,j) = ...
+                    epochs(spike_index-sp_win_size:spike_index+sp_win_size);
             end
         end
 
@@ -263,25 +267,28 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Patterns')
             out(i,comp).spec_ci_lower = spec_ci_lower;
         end
         out(i,comp).threshold_crossed_times = threshold_crossed_times;
+        if boots
+            out(i,comp).u_ci_upper = u_ci_upper;
+            out(i,comp).v_ci_upper = v_ci_upper;
+        end
+        out(i,comp).name = name;
+        out(i,comp).comp = comp;
+        out(i,comp).direction = d;
         out(i,comp).u_average = u_average;
         out(i,comp).v_average = v_average;
         out(i,comp).u_stderr = u_stderr;
         out(i,comp).v_stderr = v_stderr;
         out(i,comp).u_threshold = u_threshold(comp);
         out(i,comp).v_threshold = v_threshold(comp);
-        if boots
-            out(i,comp).u_ci_upper = u_ci_upper;
-            out(i,comp).v_ci_upper = v_ci_upper;
-        end
-        out(i,comp).time_avg = time_avg;
-        out(i,comp).name = name;
-        out(i,comp).comp = comp;
-        out(i,comp).direction = d;
+        out(i,comp).epoch = mode(epoch_segments, 1);
+        out(i,comp).time_avg = tnew(:);
 
     end
 
+    disp("Writing parquet files for " + name + " direction " + d);
+
     % save to table
-    [t_uv, t_spec] = table.analyses.trigspec(out, time_avg, efizz.f, scalar_info);
+    [t_uv, t_spec] = table.analyses.trigspec(out, [], efizz.f, scalar_info);
     tablefolder = figuredefine("tables");
     parquetwrite(fullfile(tablefolder, "triggeredspec_uv"+Opt.figAppend+".parquet"), t_uv);
     parquetwrite(fullfile(tablefolder, "triggeredspec_spec"+Opt.figAppend+".parquet"), t_spec);
