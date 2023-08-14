@@ -75,6 +75,11 @@ for k = 1:kfold
             [Xs(cvp.training(k),:); lambda*eye(nd); zeros(nd)],...
             [Ys(cvp.training(k),:); zeros(nd); lambda*eye(nd)]);
     end
+    if k == 1 && (size(A,2) < nd || size(B,2) < nd)
+        nd = min([size(A,2) size(B,2)]);
+        U = U(:,1:nd);
+        V = V(:,1:nd);
+    end
     AA{k} = coefX * A;
     BB{k} = coefY * B;
     

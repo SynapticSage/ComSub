@@ -49,7 +49,9 @@ for i = 1:length(fields)
         imagesc(Opt.time, efizz.f, signedlog(s)')
     end
     if f == "phi"
+        clim([-pi pi])
         cmocean('phase')
+        colorbar;
     end
     set(gca, 'YDir', 'normal')
     if ~isempty(Opt.upperylim)

@@ -77,8 +77,8 @@ for n = progress(1:numel(Patterns), 'Title', 'RankRegress')
     % "+j+" direction")
     curr_source = double(p.X_source');
     curr_target = double(p.X_target');
-    nSource = size(curr_source, 2);
-    nTarget = size(curr_target, 2);
+    nSource     = size(curr_source, 2);
+    nTarget     = size(curr_target, 2);
 
     nan_rows = any(isnan(curr_source), 2) | ...
                any(isnan(curr_target), 2); % setect
@@ -101,9 +101,9 @@ for n = progress(1:numel(Patterns), 'Title', 'RankRegress')
               curr_source(~nan_rows,:), ...
               numDimsUsedForPrediction);
 
-    if verbose
-        disp(newline + "Opt dim: " + p.rankRegress.optDimReducedRankRegress)
-    end
+    % if verbose
+    %     disp(newline + "Opt dim: " + p.rankRegress.optDimReducedRankRegress)
+    % end
     if ploton
         fig('ploton');
             tiledlayout(1,3);
@@ -139,7 +139,7 @@ for n = progress(1:numel(Patterns), 'Title', 'RankRegress')
      p.rankRegress.stdOptLoss  = p.rankRegress.cvLoss(2, p.rankRegress.optDimReducedRankRegress);
      p.rankRegress.muFullLoss  = p.rankRegress.cvLoss(1, end);
      p.rankRegress.stdFullLoss = p.rankRegress.cvLoss(2, end);
-     disp("Direction " + n + " with optDim " + p.rankRegress.optDimReducedRankRegress)
+     disp("Direction " + p.directionality + " with optDim " + p.rankRegress.optDimReducedRankRegress)
     
     % Single neuron prediction
     if Option.analysis.singleNeuronPrediction

@@ -1,0 +1,65 @@
+% Variables Spk, Events, Patterns_overall.cca, behavior
+% Spk
+%  .spikeCountMatrix - N x T matrix of spike counts
+%  .times_spiking - cell array of spike times
+%  .epochPerBin - T x 1 vector of epoch numbers
+%  .sessionTypePerBin - T x 1 vector of session run 1 or sleep 0
+%
+% Events
+%              times: [2.0016e+03 2.0016e+03 2.0017e+03 2.0017e+03 ... ]
+%                  H: [326028x3 double]
+%              Hvals: [326028x3 double]
+%           Hnanlocs: [326028x3 double]
+% minRippleThreshold: 3.0010
+% cellOfWin_varnames: {1x6 cell}
+%      cellOfWindows: {1x6 cell}
+%            cutoffs: [894.6513 221.0579 1 359.2146 72.2605 0.5961]
+%           nWindows: [970 1013 1013 970 1013 1013]
+%         lowcutoffs: [0 0 0 0 0 0]
+% 
+% >> Patterns_overall(end)
+%       X_source: [133x55129 double]
+%       X_target: [76x55129 double]
+%         X_time: [2.0011e+03 2.0013e+03 2.0014e+03 2.0016e+03 2.0017e+03 ... ]
+%   index_source: [133x1 double]
+%   index_target: [76x1 double]
+% directionality: "hpc-pfc"
+%           name: "Overall"
+%         source: "hpc"
+%         target: "pfc"
+%            cca: [1x1 struct]
+%
+% Patterns_overall(end).cca
+%               a: [133x20 double]
+%               b: [76x20 double]
+%               r: [20x1 double]
+%               R: [20x20 double]
+%               u: [55129x20 double]
+%               v: [55129x20 double]
+%
+% Spike rasters accomplished with plotSpikeRaster 
+%
+% >> table2struct(behavior(1,:))
+%
+%                         time: 2.0011e+03
+%                          vel: 0.6028
+%                      lindist: 0
+%               tperf_timewise: 0.5262
+%                       region: 1
+%                         traj: 1
+%                    trajbound: 0
+%                     rewarded: 1
+%                            X: 77.1791
+%                            Y: 101.8644
+%                          day: 1
+%                        epoch: 2
+%                      headdir: 1.5508
+%                    trajclass: 2
+%                    leftright: 1
+%                       future: 2
+%                     previous: NaN
+%               futureRewarded: 1
+%             previousRewarded: NaN
+%                         past: NaN
+%                 pastRewarded: NaN
+%                pastLeftRight: 0

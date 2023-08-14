@@ -46,6 +46,8 @@ function [table1, table2] = alignTables(table1, table2, varargin)
         end
     end
 
+assert(isequal(sort(fieldnames(table1)), sort(fieldnames(table2))), "Non-matching columns: " + union(setdiff(fieldnames(table1), fieldnames(table2)), setdiff(fieldnames(table2), fieldnames(table1))))
+
 end
 
 

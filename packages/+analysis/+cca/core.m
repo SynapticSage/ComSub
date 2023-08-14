@@ -59,10 +59,11 @@ results = struct(...
 );
 
 % make the plotf
-    scatter(area1_scores, area2_scores); % scatter plot of the scores
-    hold on; % keep the scatter plot when adding the next plot
-    plot([-1, 1], [-1, 1], 'k--'); % add the x=y line (adjust the range as needed)
-    xlabel('area1 cross-activity');
-    ylabel('area2 cross-activity');
-    title('cross-activity');
+scatter(area1_scores, area2_scores); % scatter plot of the scores
+hold on; % keep the scatter plot when adding the next plot
+plot([-1, 1], [-1, 1], 'k--'); % add the x=y line (adjust the range as needed)
+xlabel('area1 cross-activity');
+ylabel('area2 cross-activity');
+title('cross-activity');
+
 end

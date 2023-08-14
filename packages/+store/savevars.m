@@ -1,6 +1,9 @@
 function savevars(Option, Events, Spk, saveVars)
 
-savestruct = struct('Option', Option);
+if nargin < 4
+	saveVars = struct();
+end
+saveVars.Option = Option;
 hash = store.gethash(Option);
 
 thisFile = fullfile(hashdefine(), hash + ".mat");

@@ -288,13 +288,21 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Patterns')
     disp("Writing parquet files for " + name + " direction " + d);
 
     % save to table
+    try
     [t_uv, t_spec] = table.analyses.trigspec(out, [], efizz.f, scalar_info);
     tablefolder = figuredefine("tables");
     parquetwrite(fullfile(tablefolder, "triggeredspec_uv"+Opt.figAppend+".parquet"), t_uv);
     parquetwrite(fullfile(tablefolder, "triggeredspec_spec"+Opt.figAppend+".parquet"), t_spec);
+    catch
+        disp("Error writing parquet files for " + name + " direction " + d);
+    end
 
     if Opt.ploton
+        try
         disp("Plotting " + name + " direction " + d);
         plots.triggered_spec_struct(out(i,:), efizz, Opt);
+        catch
+            disp("Error plotting " + name + " direction " + d);
+        end
     end
 end
