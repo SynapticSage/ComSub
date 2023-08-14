@@ -489,5 +489,5 @@ for lag in sorted(data.lag.unique()):
     visualize_graph(lag_graph, positions)
     mng.resize(sz.width(), sz.height())
     plt.suptitle(f'Granger Causality Network (lag={lag})')
-    plt.savefig(os.path.join(plotfolder, f"stable_granger_causality_network_lag_{lag}.png"), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(plotfolder, f"granger_causality_network_lag_{lag}.png"), dpi=300, bbox_inches='tight')
     plt.pause(0.5)

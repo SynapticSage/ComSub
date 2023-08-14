@@ -5,7 +5,8 @@ import arrow
 import datetime
 
 # Directory where your files are located
-directory = "/Volumes/MATLAB-Drive/Shared/figures/tables/"
+intermediate = "midpattern=true"
+directory = f"/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/"
 
 # List of file names
 files = glob(os.path.join(directory, "eventuv*_*.parquet"))
@@ -46,3 +47,5 @@ if "time" in combined_df.columns:
 # Save the combined dataframe as a parquet file
 combined_df.to_parquet(os.path.join(directory, "eventuv.parquet"))
 combined_df.to_pickle(os.path.join(directory, "eventuv.pickle"))
+
+# WARNINGS:

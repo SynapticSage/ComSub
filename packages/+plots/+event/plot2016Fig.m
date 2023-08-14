@@ -8,7 +8,15 @@
 
 %% LOAD DATA
 
+Option = option.defaults();
+Option.animal = "ZT2";
+Option.preProcess_zscore    = true;
+Option.analysis.rankRegress = false;
+Option.analysis.cca = false;
+Option.save = false;
 if ~exist("efizz", "var")
+    commsubspaceToPath
+    TheScript;
     load(Option.animal + "spectralBehavior.mat");
 end
 if ~exist('behavior', 'var')
@@ -22,6 +30,7 @@ delta_band = [0.5, 4];
 theta_band = [6, 12];
 ripple_band = [150, 250];
 gap_thresh = 0.5; % Adjust as necessary
+use_rescale_avg = true;
 
 
 %% INDEXING PROPERTIES
@@ -126,6 +135,9 @@ ind.spike = cat(2, ind.spike{:});
 ind.efizz = cat(2, ind.efizz{:});
 ind.pattern = cat(2, ind.pattern{:});
 
+% Sort the cells by position
+spike_pos = spikes.computeMedianDuringSpikes(Spk.times_spiking, behavior, 'lindist');
+
 % Initialize the selected struct
 selected = struct();
 % ---- For Spk -----
@@ -151,17 +163,25 @@ for f = fields
     selected.efizz.(f{1}) = efizz.(f{1})(ind.efizz, :);
 end
 for f = fieldnames(avg)'
-    selected.efizz.(f{1}) = avg.(f{1})(ind.efizz);
+    if use_rescale_avg
+        % clamp quantile above below q
+        q = 0.01;
+        tmp = avg.(f{1})(ind.efizz)
+        Q = quantile(tmp, [q, 1-q]); 
+        tmp = munge.clamp(tmp, Q(1), Q(2)); 
+        selected.efizz.(f{1}) = rescale(tmp, -1, 1);
+    else
+        selected.efizz.(f{1}) = avg.(f{1})(ind.efizz)
+    end
 end
 disp("efizz" + newline + strjoin(repmat("-", 1, 25)))
 disp(selected.efizz)
 % --- For Patterns_overall ---
 selected.pattern.X_time = munge.removeDataGaps(Patterns_overall(end).X_time(ind.pattern), ranges, time_gaps, 'gap_thresh', gap_thresh);
-selected.pattern.u = Patterns_overall(end).cca.u(ind.pattern);
-selected.pattern.v = Patterns_overall(end).cca.v(ind.pattern);
+selected.pattern.u = Patterns_overall(end).cca.u(ind.pattern,:);
+selected.pattern.v = Patterns_overall(end).cca.v(ind.pattern,:);
 disp("Patterns_overall" + newline + strjoin(repmat("-", 1, 25)))
 disp(selected.pattern)
-
 selected.behavior_time = munge.removeDataGaps(selected_rows.time, ranges, time_gaps, 'gap_thresh', gap_thresh);
 
 %% PLOTTING
@@ -178,10 +198,10 @@ names = ["HPC", "PFC", "Theta", "Ripple", "U", "V"];
 normalized_heights = rel_heights / sum(rel_heights);
 cumulative_heights = [0, cumsum(normalized_heights)];
 % Define user-defined offsets (if needed)
-user_offset.theta_hpc = -5; % or whatever value you want
-user_offset.theta_pfc = 5; % example value
-user_offset.ripple_hpc = -5; % or whatever value you want
-user_offset.ripple_pfc = 5; % example value
+user_offset.theta.hpc = 5; % or whatever value you want
+user_offset.theta.pfc = 20; % example value
+user_offset.ripple.hpc = -7.5; % or whatever value you want
+user_offset.ripple.pfc = 7.5; % example value
 % Compute auto offsets based on the middle of the visualization range
 visualize.theta = [0, 40];
 visualize.ripple = [130, max(efizz.f)];
@@ -218,27 +238,38 @@ for i = 1:length(rel_heights)
             imagesc(selected.efizz.t, efizz.f, log10(selected.efizz.S1')); set(gca, 'YDir', 'normal', 'YLim', visualize.theta); 
             hold on;
             set(gca, 'Layer', 'top');
-            plot(selected.efizz.t, selected.efizz.theta_hpc + auto_offset.theta + user_offset.theta_hpc, 'w', 'DisplayName', 'HPC Theta', 'LineWidth', 1.5);
+            scale = median(structfun(@abs,user_offset.theta));
+            plot(selected.efizz.t, scale*selected.efizz.theta_hpc + auto_offset.theta + user_offset.theta.hpc, 'w', 'DisplayName', 'HPC Theta', 'LineWidth', 1.5);
             set(gca, 'Layer', 'top');
-            plot(selected.efizz.t, selected.efizz.theta_pfc + auto_offset.theta + user_offset.theta_pfc, 'r', 'DisplayName', 'PFC Theta', 'LineWidth', 1.5);
+            plot(selected.efizz.t, scale*selected.efizz.theta_pfc + auto_offset.theta + user_offset.theta.pfc, 'r', 'DisplayName', 'PFC Theta', 'LineWidth', 1.5);
             ylabel('Frequency (Hz)');
             title('Theta Band Average Power for HPC and PFC');
             legend('Location', 'northwest');
         case 4  % Ripple Band
-            imagesc(selected.efizz.t, efizz.f, log10(abs(selected.efizz.S1')));
+            tmp = log10(abs(selected.efizz.S1'));
+            imagesc(selected.efizz.t, efizz.f, tmp);
+            [M,m] = deal(max(tmp(:, ripple_idx),[],'all'), min(tmp(:, ripple_idx),[],'all'));
+            clim([m, M]);
             set(gca, 'YDir', 'normal', 'YLim', visualize.ripple);
             hold on;
-            plot(selected.efizz.t, selected.efizz.ripple_hpc + auto_offset.ripple + user_offset.ripple_hpc, 'w', 'DisplayName', 'HPC Ripple', 'LineWidth', 1.5);
-            plot(selected.efizz.t, selected.efizz.ripple_pfc + auto_offset.ripple + user_offset.ripple_pfc, 'r', 'DisplayName', 'PFC Ripple', 'LineWidth', 1.5);
+            scale = 2*median(structfun(@abs,user_offset.ripple));
+            plot(selected.efizz.t, scale*selected.efizz.ripple_hpc + auto_offset.ripple + user_offset.ripple.hpc, 'w', 'DisplayName', 'HPC Ripple', 'LineWidth', 1.5);
+            plot(selected.efizz.t, scale*selected.efizz.ripple_pfc + auto_offset.ripple + user_offset.ripple.pfc, 'r', 'DisplayName', 'PFC Ripple', 'LineWidth', 1.5);
             ylabel('Frequency (Hz)');
             title('Ripple Band Average Power for HPC and PFC');
             legend('Location', 'northwest');
-        case 5  % U components
-            plot(selected.pattern.X_time, selected.pattern.u(1,:));
+        case 5  % U components, CCA
+            plot(selected.pattern.X_time, selected.pattern.u(:,1), 'DisplayName', 'HPC U');
+            hold on;
+            plot(selected.pattern.X_time, selected.pattern.u(:,2), 'DisplayName', 'HPC U, 2', 'Color', [0 1 0 0.35], 'LineWidth', 0.5);
+            yline(0, 'Color', 'k', 'LineWidth', 1.5, 'LineStyle', ':');
             ylabel('U Component');
             title('U Component of hpc-pfc communication');
-        case 6  % V components
-            plot(selected.pattern.X_time, selected.pattern.v(1,:));
+        case 6  % V components, CCA
+            plot(selected.pattern.X_time, selected.pattern.v(:,1), 'DisplayName', 'PFC V');
+            hold on;
+            yline(0, 'Color', 'k', 'LineWidth', 1.5, 'LineStyle', ':');
+            plot(selected.pattern.X_time, selected.pattern.v(:,2), 'DisplayName', 'PFC V, 2', 'Color', [0 1 0 0.35], 'LineWidth', 0.5);
             ylabel('V Component');
             title('V Component of hpc-pfc communication');
     end
@@ -255,7 +286,7 @@ for sect = lindist_to_sections
         % Define the limits for the secondary Y-axis (adjust these as per your needs)
         y2_lim = [min(behavior.lindist), max(behavior.lindist)];
         % ylim(ax2, y2_lim);
-        p1 = plot(selected.behavior_time, selected_rows.lindist, 'Color', [1 0 0 0.35], 'Parent', ax2, 'LineWidth', 1.5);
+        p1 = plot(selected.behavior_time, selected_rows.lindist, 'Color', [1 0 0 0.35], 'Parent', ax2, 'LineWidth', 2);
         % set(p1, 'Color', [1 0 0 0.5]);  % Here, [1 0 0] is red color and 0.35 is the alpha (transparency)
         ylabel('Linear Distance');
         % ax2.YAxisLocation = 'right';  % Ensure the secondary y-axis is on the right
@@ -263,3 +294,4 @@ for sect = lindist_to_sections
         linkaxes([ax(rowdict("HPC")), ax2], 'x');  % Link the x-axes together
     end
 end
+set(gcf, 'Position', get(0, 'Screensize'));  % Maximize the figure window

@@ -18,7 +18,12 @@ function medians = computeMedianDuringSpikes(times_spiking, behavior, column_nam
         behavior_inds(inds) = [];
         spikeBehaviorValues = behavior(behavior_inds, column_name);
 
+        % Quantile filter
+        Q = quantile(spikeBehaviorValues, [0.01, 0.99]);
+        spikeBehaviorValues(spikeBehaviorValues < Q(1)) = [];
+        spikeBehaviorValues(spikeBehaviorValues > Q(2)) = [];
+
         % Compute the median value
-        medians(n) = median(spikeBehaviorValues, 'omitnan');
+        medians(n) = mean(spikeBehaviorValues);
     end
 end

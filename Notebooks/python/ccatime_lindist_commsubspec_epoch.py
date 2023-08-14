@@ -8,6 +8,7 @@ from sklearn.utils import resample
 from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 import itertools
+import matplotlib.cm as cm
 
 # Set the flag for shading the confidence intervals to False
 # - - - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - - 
@@ -214,9 +215,6 @@ bootstrap_means_combined = pd.read_parquet(
         os.path.join(folder, f'{name}_bootstrap_normalized{append}_{str(scaler).replace("()","").lower()}.parquet'))
 
 # Add the lindist_bin_mid column back to the DataFrame
-print("Adding lindist_bin_mid column...")
-bootstrap_means_combined["lindist_bin_mid"] = \
-    bootstrap_means_combined["lindist_bin"].apply(lambda x: x.mid)
 
 animal_bootstrap_means_combined = bootstrap_means_combined.groupby(
         ["iboot", "epoch", "column", "trajbound", "lindist_bin_mid"]).mean().reset_index()
@@ -224,6 +222,9 @@ animal_bootstrap_means_combined = bootstrap_means_combined.groupby(
 # Read Parquet
 # ----------------------------------------------------
 bootstrap_means_combined = pd.read_parquet(os.path.join(folder, f'{name}_bootstrap_normalized{append}.parquet'))
+print("Adding lindist_bin_mid column...")
+bootstrap_means_combined["lindist_bin_mid"] = \
+    bootstrap_means_combined["lindist_bin"].apply(lambda x: x.mid)
 
 
 
@@ -323,10 +324,29 @@ plt.savefig(figfolder + f'lindist_bootstrap{append}_{field}_balancedanim_collaps
 
 
 # ------------------------------------------------------
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import numpy as np
+
+def plot_with_bootstrap_ci(data, x, y, ax, color, label):
+    # Extract unique values of x and sort them
+    x_values = sorted(data[x].unique())
+    # For each unique x value, compute the mean and confidence interval of y
+    means = []
+    lower_bound = []
+    upper_bound = []
+    for x_val in x_values:
+        y_samples = data[data[x] == x_val][y]
+        means.append(np.mean(y_samples))
+        lower_bound.append(np.percentile(y_samples, 2.5))
+        upper_bound.append(np.percentile(y_samples, 97.5))
+    # Plot the mean
+    ax.plot(x_values, means, color=color, label=label)
+    # Shade the confidence interval
+    ax.fill_between(x_values, lower_bound, upper_bound, color=color, alpha=0.3)
+
+# Example usage
+# fig, ax = plt.subplots()
+# plot_with_bootstrap_ci(group.query('trajbound == 0'), "lindist_bin_mid", "your_y_field_here", ax, "blue", "label_here")
+# plt.show()
+
 
 def plot_by_epoch(df, column, epochs, field="bootstrap_mean_smooth"):
     # Get the unique epochs
@@ -348,17 +368,24 @@ def plot_by_epoch(df, column, epochs, field="bootstrap_mean_smooth"):
         # Sort values for consistent plotting
         group = group.sort_values(by="lindist_bin_mid")
         # Plot the line for this epoch
-        sns.lineplot(x="lindist_bin_mid", y=field, 
-                     data=group.query('trajbound == 0'), 
-                     ax=ax[0],
-                     color=epoch_color_map[epoch], label=f'Epoch {epoch}')
-        sns.lineplot(x="lindist_bin_mid", y=field, 
-                     data=group.query('trajbound == 1'), 
-                     ax=ax[1],
-                     color=epoch_color_map[epoch], label=f'Epoch {epoch}')
+        # sns.lineplot(x="lindist_bin_mid", y=field, 
+        #              data=group.query('trajbound == 0'), 
+        #              ax=ax[0],
+        #              color=epoch_color_map[epoch], label=f'Epoch {epoch}')
+        plot_with_bootstrap_ci(group.query('trajbound == 0'),
+                               "lindist_bin_mid", field, ax[0],
+                               epoch_color_map[epoch], f'E{epoch}')
+        # sns.lineplot(x="lindist_bin_mid", y=field, 
+        #              data=group.query('trajbound == 1'), 
+        #              ax=ax[1],
+        #              color=epoch_color_map[epoch], label=f'Epoch {epoch}')
+        plot_with_bootstrap_ci(group.query('trajbound == 1'),
+                               "lindist_bin_mid",field, ax[1],
+                               epoch_color_map[epoch], f'')
     
     # Set title and labels
     fig.suptitle(f'{column} over epochs')
+    fig.legend()
     ax[1].set_xlabel('lindist_bin_mid')
     ax[1].set_ylabel(field)
     ax[0].set_ylabel(field)
@@ -372,6 +399,7 @@ for column in tqdm(component_fill_bases.keys(),total=len(component_fill_bases.ke
     plot_by_epoch(animal_bootstrap_means_combined, column, "epoch")
     plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_epoch.png"), dpi=300)
     plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_epoch.pdf"), dpi=300)
+    # plt.close('all')
 
 
 # ------------------------------------------------------
@@ -390,10 +418,11 @@ def plot_by_animal(df, column, field="bootstrap_mean_smooth"):
     epoch_color_map = dict(zip(unique_epochs, colors))
     
     # Create a subplot
-    fig, axes = plt.subplots(len(unique_animals), len(unique_trajbounds), figsize=(10, 7 * len(unique_animals)))
+    fig, axes = plt.subplots(len(unique_animals), len(unique_trajbounds),
+                             figsize=(10, 7 * len(unique_animals)))
 
     # Group data by animal, epoch, and trajbound and plot each group
-    for animal in unique_animals:
+    for animal in tqdm(unique_animals, desc="Animals", total=len(unique_animals)):
         for trajbound in unique_trajbounds:
             for epoch in unique_epochs:
                 # Subset to the data of interest
@@ -402,11 +431,16 @@ def plot_by_animal(df, column, field="bootstrap_mean_smooth"):
                 data = data.sort_values(by="lindist_bin_mid")
                 # Plot the line for this animal, epoch, and trajbound
                 if not data.empty:
-                    sns.lineplot(
-                        x="lindist_bin_mid", y=field, data=data,
-                        ax=axes[unique_animals.index(animal), unique_trajbounds.index(trajbound)],
-                        color=epoch_color_map[epoch], label=f'Epoch {epoch}'
-                    )
+                    # sns.lineplot(
+                    #     x="lindist_bin_mid", y=field, data=data,
+                    #     ax=axes[unique_animals.index(animal), unique_trajbounds.index(trajbound)],
+                    #     color=epoch_color_map[epoch], label=f'Epoch {epoch}'
+                    # )
+                    plot_with_bootstrap_ci(data, "lindist_bin_mid", field,
+                                           ax=axes[unique_animals.index(animal),
+                                                   unique_trajbounds.index(trajbound)],
+                                           color=epoch_color_map[epoch],
+                                           label=f'E{epoch}' if trajbound == 0 else '')
                     # Set title and labels
                     axes[unique_animals.index(animal), unique_trajbounds.index(trajbound)].set_title(f'Animal {animal}, Trajbound {trajbound}')
                     axes[unique_animals.index(animal), unique_trajbounds.index(trajbound)].set_xlabel('lindist_bin_mid')
@@ -422,4 +456,5 @@ for column in tqdm(component_fill_bases.keys(),total=len(component_fill_bases.ke
     plot_by_animal(bootstrap_means_combined, column)
     plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_animal.png"), dpi=300)
     plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_animal.pdf"), dpi=300)
+    # plt.close('all')
 

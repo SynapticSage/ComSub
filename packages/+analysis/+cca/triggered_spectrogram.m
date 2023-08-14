@@ -97,12 +97,26 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Patterns')
     % Calculate the quantile threshold for u and v
     u_threshold = quantile(u, quantile_threshold);
     v_threshold = quantile(v, quantile_threshold);
+    u_threshold_lower = quantile(u, 1-quantile_threshold);
+    v_threshold_lower = quantile(v, 1-quantile_threshold);
 
     % Find the time bins where u or v cross their respective thresholds
     if Opt.based_on == "mean"
         u_above_threshold = u > u_threshold;
         v_above_threshold = v > v_threshold;
         all_threshold_crossed = u_above_threshold & v_above_threshold;
+    elseif Opt.based_on == "mean_u_above"
+        u_above_threshold = u > u_threshold;
+        all_threshold_crossed = u_above_threshold;
+    elseif Opt.based_on == "mean_v_above"
+        v_above_threshold = v > v_threshold;
+        all_threshold_crossed = v_above_threshold;
+    elseif Opt.based_on == "mean_u_below"
+        u_below_threshold = u < u_threshold_lower;
+        all_threshold_crossed = u_below_threshold;
+    elseif Opt.based_on == "mean_v_below"
+        v_below_threshold = v < v_threshold_lower;
+        all_threshold_crossed = v_below_threshold;
     elseif Opt.based_on == "std"
         u_stdthresh           = ustd > quantile(ustd, quantile_threshold);
         v_stdthersh           = vstd > quantile(vstd, quantile_threshold);

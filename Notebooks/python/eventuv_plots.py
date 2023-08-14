@@ -5,9 +5,12 @@ import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
 import os
 from tqdm import tqdm
-tqdm.tqdm.pandas()
+tqdm.pandas()
 
-figfolder = "/Volumes/MATLAB-Drive/Shared/figures/eventuv_python/"
+
+intermediate = "midpattern=true"
+figfolder = f"/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/eventuv_python/"
+origin=f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/eventuv.parquet'
 if not os.path.exists(figfolder):
     os.makedirs(figfolder)
 
@@ -125,7 +128,7 @@ def prep_uv_magnitude_over_time(df_matrix, time='events'):
 
 
 # Load the provided CSV file
-df = pd.read_parquet('/Volumes/MATLAB-Drive/Shared/figures/tables/eventuv.parquet')
+df = pd.read_parquet(origin)
 # Display the first few rows of the dataframe
 df.head()
 # Function to calculate the distance from a point to the line y = x
@@ -160,7 +163,8 @@ df = (df.sort_values(['event_time','animal'])
 
 
 # Remove rows with NaN in 'event_u_values' or 'event_v_values'
-df_clean = df.dropna(subset=['event_u_values', 'event_v_values'])
+# df_clean = df.dropna(subset=['event_u_values', 'event_v_values'])
+df_clean = df.copy()
 # Calculate the distance from each point to the line y = x
 df_clean['distance_to_line'] = distance_to_line(df_clean['event_u_values'], df_clean['event_v_values'])
 # Calculate the Euclidean distance from each point to the origin
@@ -177,15 +181,21 @@ df_clean['on_commsub_mag'] = df_clean['on_commsub'] * df_clean['distance_to_orig
 df_summary = df_clean.groupby(['genH', 'patterns', 'uv_components', 'animal', 'events']).mean().reset_index()
 
 # Create 'highlow' column based on 'patterns'
-df_clean['highlow'] = df_clean['patterns'].apply(lambda x: 'high' if x in [1, 2, 3] else 'low')
+if df.patterns.max() == 6:
+    df_clean['highlow'] = df_clean['patterns'].apply(lambda x: 'high' if x in [1, 2, 3] else 'low')
+elif df.patterns.max() == 9:
+    mapping = {1:'high', 2:'high', 3:'high', 4:'low', 5:'low', 6:'low', 7:'mid', 8:'mid', 9:'mid'}
+    df_clean['highlow'] = df_clean['patterns'].map(mapping)
 # Create a composite column combining 'genH' and 'highlow'
 df_clean['genH_highlow'] = df_clean['genH'].astype(str) + "_" + df_clean['highlow']
 df_clean['highlow_genH'] = df_clean['highlow'] + "_" + df_clean['genH'].astype(str)
 df_clean['magnitude_u'] = np.abs(df_clean['event_u_values'])
 df_clean['magnitude_v'] = np.abs(df_clean['event_v_values'])
 df_clean[['magnitude_u', 'magnitude_v']].head()
+
+overall_pattern = df_clean.patterns.max() + 1
 mapping = {i:(i-1)%3+1 for i in range(1, 7)}
-mapping[7] = np.nan
+mapping[overall_pattern] = np.nan
 df_clean['pattern_class'] = df_clean['patterns'].map(mapping)
 
 # FILTER
@@ -202,7 +212,7 @@ print(df_clean.uv_components.unique())
 
 # PLOT: Hist plot of on/off commsub -------------
 # Create a subplot grid with one row for each uv_component and one column for each pattern
-def plot_hist(df_clean, thing='on_commsub_mag', pattern_cca2=7, **kws):
+def plot_hist(df_clean, thing='on_commsub_mag', pattern_cca2=overall_pattern, **kws):
     fig, axs = plt.subplots(len(uv_components), len(patterns), figsize=(4*len(patterns), 4*len(uv_components)), sharey=True)
     if len(uv_components) == 1:
         axs = [axs]
@@ -351,7 +361,7 @@ def plot_animal_counts(df):
 
 plot_animal_counts(df_clean)
 
-# PLOT: 
+# PLOT: : IMPORTANT
 import seaborn as sns
 import matplotlib.pyplot as plt
 # Create a FacetGrid that arranges the data by uv_components (rows) and patterns (columns)
@@ -376,6 +386,33 @@ g.map(add_lines, 'event_u_values', 'event_v_values')
 g.add_legend()
 # Display the plot
 plt.show()
+
+# PLOT: : IMPORTANT
+import seaborn as sns
+import matplotlib.pyplot as plt
+# Create a FacetGrid that arranges the data by uv_components (rows) and patterns (columns)
+g = sns.FacetGrid(df_clean, col='highlow', row='uv_components', hue='genH',
+                  height=4, aspect=1, palette='viridis')
+# Apply a scatterplot onto each facet with increased alpha transparency
+g.map(sns.scatterplot, 'event_u_values', 'event_v_values', alpha=0.05)
+# Add a diagonal line, text, and vertical/horizontal lines at x=0 and y=0 for each subplot
+def add_lines(x, y, **kwargs):
+    ax = plt.gca()
+    ax.axline((0, 0), slope=1, color='black', linestyle='--')
+    ax.text(0.6, 0.7, 'comm sub', transform=ax.transAxes, color='black')
+    ax.axvline(0, color='black', linestyle=':', linewidth=0.5)
+    ax.axvline(5, color='black', linestyle=':', linewidth=0.5)
+    ax.axvline(-5, color='black', linestyle=':')
+    ax.axhline(-5, color='black', linestyle=':', linewidth=0.5)
+    ax.axhline(5, color='black', linestyle=':', linewidth=0.5)
+    ax.axhline(0, color='black', linestyle=':')
+
+g.map(add_lines, 'event_u_values', 'event_v_values')
+# Add a legend
+g.add_legend()
+# Display the plot
+plt.show()
+
 
 # ---------------------------------------------
 # Calculate the projection score onto the x=y line
