@@ -69,12 +69,14 @@ line_styles = {
     "S2theta": "-", "S2delta": "-", "S2ripple": "-",
     "wpli_avgtheta": "--", "wpli_avgdelta": "--", "wpli_avgripple": "--"
 }
+
 # - - - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - - 
 # - - - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - - 
 # - - - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - - 
 print("Loading data...")
-folder = '/Volumes/MATLAB-Drive/Shared/figures/tables/'
-figfolder = '/Volumes/MATLAB-Drive/Shared/figures/lindist_bootstrap_epoch/zscore'
+intermediate = "midpattern=true"
+folder = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/'
+figfolder = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/lindist_bootstrap_epoch/zscore'
 if not os.path.exists(figfolder):
     os.makedirs(figfolder)
 # name   = 'ZT2powerccatime'

@@ -20,15 +20,15 @@ significant_df['animal'] = significant_df['filename'].apply(lambda x: os.path.ba
 
 # remove 60 hz from coherence -- because coherence sensitive to 60 hz noise
 notch = significant_df.f.unique()[significant_df.query('field=="Cavg"').set_index('f').coef_U.abs().groupby('f').mean().argmax()]
-significant_df = significant_df.query('(field == "Cavg" & (f < (@notch-4) | f > (@notch+4))) | field != "Cavg"')
+significant_df = significant_df.query('f < (@notch-5) | f > (@notch+5)')
 
 # Take the absolute value of coef_U and coef_V
-significant_df['abs_coef_U'] = np.abs(significant_df['coef_U'])
-significant_df['abs_coef_V'] = np.abs(significant_df['coef_V'])
+significant_df['abs_coef_U']          = np.abs(significant_df['coef_U'])
+significant_df['abs_coef_V']          = np.abs(significant_df['coef_V'])
 significant_df['abs_coef_difference'] = significant_df['abs_coef_U'] - significant_df['abs_coef_V']
-significant_df['coef_difference'] = significant_df['coef_U'] - significant_df['coef_V']
-significant_df['abs_coef_U_strat'] = significant_df['abs_coef_U'] + 0.20
-significant_df['abs_coef_V_strat'] = significant_df['abs_coef_V'] - 0.20
+significant_df['coef_difference']     = significant_df['coef_U'] - significant_df['coef_V']
+significant_df['abs_coef_U_strat']    = significant_df['abs_coef_U'] + 0.20
+significant_df['abs_coef_V_strat']    = significant_df['abs_coef_V'] - 0.20
 # Compute the mean of the absolute values of coef_U and coef_V
 significant_df['coef_mean'] = significant_df[['abs_coef_U', 'abs_coef_V']].mean(axis=1)
 significant_df['smooth_abs_coef_difference'] = significant_df.groupby(['field', 'animal','coef_i']).rolling(5, center=True).mean().reset_index()['abs_coef_difference']

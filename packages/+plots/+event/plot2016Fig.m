@@ -11,7 +11,7 @@
 % - occ norm  
 % - cca, dim 3 
 % - color cells by component 
-% - actual efizz
+% - actual efizz 
 % - window
 % - subplot grid with behavior for selected period (1 traj per subplot)
 
@@ -28,6 +28,10 @@ if ~exist("efizz", "var")
     TheScript;
     load(Option.animal + "spectralBehavior.mat");
     load(Option.animal + "avgeeg.mat");
+    avgeeg = ndb.toNd(avgeeg);
+    lfp.hpc = munge.oneEEGstruct(avgeeg(:,:,1)); % TODO: how does this handle areas?
+    lfp.pfc = munge.oneEEGstruct(avgeeg(:,:,2));
+    clear avgeeg
 end
 if ~exist('behavior', 'var')
     running_times = Spk.timeBinMidPoints(Spk.sessionTypePerBin == 1);
@@ -48,9 +52,9 @@ sortdir = 'descend';
 dim3 = [];
 colorbycomp = true;
 pattern_overall_ind = numel(Patterns_overall);
+wins = [1, 3];
 
-
-%% INDEXING PROPERTIES
+%% -- INDEXING PROPERTIES --
 
 % Find frequency indices
 delta_idx  = find(efizz.f >= delta_band(1) & efizz.f <= delta_band(2));
@@ -70,7 +74,7 @@ cells.pfc = Spk.areaPerNeuron == "PFC";
 %% TIME :: Finding Valid Gaps in Data
 
 %% Specify the epoch, traj, trajall, trajclass, trajbound (use [] if not specifying)
-epoch_option     = 14; % e.g., 'EpochName'
+epoch_option     = 6; % e.g., 'EpochName'
 % for trajbound_option = [0 1]; % 0 or 1
 trajbound_option = 0; % 0 or 1
 traj_option      = []; % a specific trajectory index within an epoch
@@ -114,6 +118,7 @@ disp("Total time: " + total_time + " seconds");
 time_gaps = ranges(1,2:end) - ranges(2,1:end-1);
 % Calculate the cumulative sum of these gaps, which will be the offset for each range
 cumulative_gaps = [0, cumsum(time_gaps)];
+Events.wincenter = cellfun(@(x)mean(x, 2), Events.cellOfWindows, 'UniformOutput', false);
 
 % figure(fig("Time segments"));clf;
 % tiledlayout('flow'); nexttile
@@ -139,7 +144,6 @@ b.time
 
 % Initialize struct for indices
 ind = struct();
-
 % Extract indices for each segment and data type
 for i = 1:size(ranges, 2)
     % For Spk
@@ -148,10 +152,21 @@ for i = 1:size(ranges, 2)
     ind.efizz{i} = find(efizz.t >= ranges(1, i) & efizz.t <= ranges(2, i));
     % For Patterns_overall
     ind.pattern{i} = find(Patterns_overall(end).X_time >= ranges(1, i) & Patterns_overall(end).X_time <= ranges(2, i));
+    ind.lfp.hpc{i} = find(lfp.hpc.time >= ranges(1, i) & lfp.hpc.time <= ranges(2, i));
+    ind.lfp.pfc{i} = find(lfp.pfc.time >= ranges(1, i) & lfp.pfc.time <= ranges(2, i));
+    for j = 1:numel(Events.wincenter)
+        ind.wins{j}{i} = find(Events.wincenter{j} >= ranges(1, i) & Events.wincenter{j} <= ranges(2, i));
+    end
 end
 ind.spike = cat(2, ind.spike{:});
 ind.efizz = cat(2, ind.efizz{:});
 ind.pattern = cat(2, ind.pattern{:});
+ind.lfp.hpc = cat(2, ind.lfp.hpc{:});
+ind.lfp.pfc = cat(2, ind.lfp.pfc{:});
+for j = 1:numel(Events.wincenter)
+    tmp = ind.wins{j};
+    ind.wins{j} = cat(1, tmp{:});
+end
 
 % Sort the cells by position
 sortby = spikes.computeMedianDuringSpikes(Spk.times_spiking, behavior, sortprop, 'quantile_vec', 'lindist');
@@ -207,6 +222,17 @@ selected.pattern.b = Patterns_overall(pattern_overall_ind).cca.b;
 disp("Patterns_overall" + newline + strjoin(repmat("-", 1, 25)))
 disp(selected.pattern)
 selected.behavior_time = munge.removeDataGaps(selected_rows.time, ranges, time_gaps, 'gap_thresh', gap_thresh);
+% --- For eeg ---
+selected.lfp.time = munge.removeDataGaps(lfp.hpc.time(ind.lfp.hpc), ranges, time_gaps, 'gap_thresh', gap_thresh);
+selected.lfp.hpc.data = lfp.hpc.data(ind.lfp.hpc);
+selected.lfp.pfc.data = lfp.pfc.data(ind.lfp.hpc);
+selected.lfp.hpc.theta = lfp.hpc.theta.data(ind.lfp.hpc);
+selected.lfp.pfc.theta = lfp.pfc.theta.data(ind.lfp.hpc);
+selected.lfp.hpc.ripple = lfp.hpc.ripple.data(ind.lfp.hpc);
+selected.lfp.pfc.ripple = lfp.pfc.ripple.data(ind.lfp.hpc);
+assert(isequal(ind.lfp.hpc, ind.lfp.pfc), "HPC and PFC indices should be the same");
+% WARNING: DO ASSERTIONS
+% --- For windowed eeg ---
 
 %% PLOTTING
 f = fig("2016 Figure epoch " + epoch_option + " " + sortprop + " trajbound " + trajbound_option);
