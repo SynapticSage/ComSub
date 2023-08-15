@@ -17,14 +17,16 @@ load("RunsSummary.mat", "RunsSummary");
 Option = option.defaults();
 Option.tableAppend     = "_spectra";
 Option.analysis.cca    = true;
-Option.midpattern      = false;
+Option.midpattern      = true;
 Option.analysis.checks = false;
+X = datetime('now') - hours(18);
+tableCheck = true; % Set to true if you want to check RunsSummary table
 
 animal_list = [...
-    ... "JS21",...
-    ... "JS15",...
-    ... "JS14",...
-    ... "JS13",...
+    "JS21",...
+    "JS15",...
+    "JS14",...
+    "JS13",...
     "JS17",...
     "ER1",...
     "ZT2"...
@@ -48,7 +50,7 @@ disp("and analysis struct ")
 disp(Option.analysis);
 disp(" -----------------------------------------")
 disp("Press any key to continue");
-pause
+% pause
 first = false;
 
 dopar = false;
@@ -57,13 +59,11 @@ if dopar
 end
 
 %% Run
-X = datetime('now') - hours(3);
 dates = NaT(numel(RunsSummary.timestamp),1);
 for i = 1:numel(RunsSummary.timestamp)
     dates(i) = datetime(RunsSummary.timestamp(i));
 end
 [cntAn, cntH, cntZ]         = deal(0);
-tableCheck = false; % Set to true if you want to check RunsSummary table
 for zsc = progress(zvals,'Title','zscore');  cntZ = cntZ + 1;
 for genH_= progress(h_methods,'Title','genH method'); cntH = cntH + 1;
 for iAnimal = progress(1:numel(animal_list),'Title','Animal'); cntAn = cntAn + 1;
@@ -86,7 +86,7 @@ for iAnimal = progress(1:numel(animal_list),'Title','Animal'); cntAn = cntAn + 1
         disp("-------------------------------");
         if ~first
             disp("Press any key to continue");
-            pause
+            % pause
             first = true;
         end
         if dopar
@@ -104,6 +104,7 @@ for iAnimal = progress(1:numel(animal_list),'Title','Animal'); cntAn = cntAn + 1
             %end
         end
         table.combineAndUpdateTables("RunsSummary_*", "RunsSummary");
+        table.combineAndUpdateTables("DetailedRunsSummary_*", "DetailedRunsSummary");
         disp("finished " + Option.animal + " " + Option.generateH + "<---" + string(datetime('now')));
         close all;
 end % genH

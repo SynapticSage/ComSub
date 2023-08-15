@@ -3,6 +3,8 @@ import os
 from glob import glob
 import arrow
 import datetime
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # Directory where your files are located
 intermediate = "midpattern=true"
@@ -47,5 +49,12 @@ if "time" in combined_df.columns:
 # Save the combined dataframe as a parquet file
 combined_df.to_parquet(os.path.join(directory, "eventuv.parquet"))
 combined_df.to_pickle(os.path.join(directory, "eventuv.pickle"))
+
+def fraction_missing(df):
+    x=combined_df.groupby(["patternNames", "uv_components","pattern_cca"]).event_u_values.apply(lambda x: np.mean(np.isnan(x)))
+    import seaborn as sns
+    sns.heatmap(x.unstack(), cmap="Blues", annot=True, fmt=".1%")
+    plt.show()
+    plt.savefig(os.path.join(directory, "eventuv_genuine.png"))
 
 # WARNINGS:

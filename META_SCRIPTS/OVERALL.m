@@ -61,18 +61,33 @@ end
 
 
 % -----------------------------------------------------
+% Python  data combine
+% -----------------------------------------------------
+
+command = sprintf('python %s', codedefine("Notebooks","python","uvevents_combine.py"));
+system(command);
+
+command = sprintf('python %s', codedefine("Notebooks","python","ccatime_combinefiles.py"));
+system(command);
+
+command = sprintf('python %s', codedefine("Notebooks","python","regress_combine.py"));
+system(command);
+
+% -----------------------------------------------------
 % Python  figures
 % -----------------------------------------------------
-script1 = ...
-py.importlib.import_module(codedefine("Notebooks","python","dimPred.py")); % from PreambFigs
-script2 = ...
-py.importlib.import_module(codedefine("Notebooks","python","prediction.py")); % from PreambFigs
-script3 = ...
-py.importlib.import_module(codedefine("Notebooks","python","ccatime.py")); % from TheScript
-script4 = ...
-py.importlib.import_module(codedefine("Notebooks","python","uvevents_combine.py")); % from TheScript
-script5 = ...
-py.importlib.import_module(codedefine("Notebooks","python","uvevents_plot.py")); % from TheScript
+
+command = sprintf('python %s', codedefine("Notebooks","python","dimPred.py"));
+system(command);
+
+command = sprintf('python %s', codedefine("Notebooks","python","prediction.py"));
+system(command);
+
+command = sprintf('python %s', codedefine("Notebooks","python","ccatime.py"));
+system(command);
+
+command = sprintf('python %s', codedefine("Notebooks","python","uvevents_plot.py"));
+system(command);
 % ------------------------------------------------------
 
 

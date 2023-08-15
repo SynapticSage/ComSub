@@ -148,11 +148,11 @@ def label_epochs(df, time_col='event_time', time_threshold=60*10):
     # Calculate time difference
     df.loc[:,'time_diff'] = df[time_col].diff()
     # Initialize the epoch column with 0
-    df.loc[:,'epoch'] = 0
+    df.loc[:,'epoch2'] = 0
     # If time difference is more than threshold, increment epoch
     df.loc[df['time_diff'] > time_threshold, 'epoch'] = 1
     # Calculate the cumulative sum of the epoch column
-    df.loc[:, 'epoch'] = df['epoch'].cumsum()
+    df.loc[:, 'epoch2'] = df['epoch2'].cumsum()
     # Drop the time_diff column as we don't need it anymore
     df.drop(columns=['time_diff'], inplace=True)
     return df
@@ -194,12 +194,12 @@ df_clean['magnitude_v'] = np.abs(df_clean['event_v_values'])
 df_clean[['magnitude_u', 'magnitude_v']].head()
 
 overall_pattern = df_clean.patterns.max() + 1
-mapping = {i:(i-1)%3+1 for i in range(1, 7)}
+mapping = {int(i):(int(i)-1)%3+1 for i in range(1, int(df.patterns.max()+1))}
 mapping[overall_pattern] = np.nan
 df_clean['pattern_class'] = df_clean['patterns'].map(mapping)
 
-# FILTER
-df_clean = df_clean.query('pattern_cca1 == 2 & pattern_cca2 == 7')
+# FILTER # WARNING: if you use 'match' below, you must comment this out
+# df_clean = df_clean.query(f'pattern_cca1 == 2 & pattern_cca2 == {df.patterns.max()}')
 
 # Display the first few rows of the dataframe
 df_clean.head()
@@ -221,6 +221,7 @@ def plot_hist(df_clean, thing='on_commsub_mag', pattern_cca2=overall_pattern, **
     
     df_clean = df_clean.sort_values(['patterns'])
     q = df_clean[thing].quantile(0.99)
+    qlow = df_clean[thing].quantile(0.001)
     
     for i, uv_component in enumerate(uv_components):
         for j, pattern in enumerate(patterns):
@@ -239,12 +240,15 @@ def plot_hist(df_clean, thing='on_commsub_mag', pattern_cca2=overall_pattern, **
                     (df_clean['genH_highlow'] == genH) & 
                     (df_clean['pattern_cca2'] == pattern_cca2_value)
                 ]
+                if all(df_sub.empty) or all(df_sub[thing].isna()):
+                    print(f'No data for uv_component {uv_component}, pattern {pattern}, genH {genH}, pattern_cca2 {pattern_cca2_value}')
+                    continue
                 
                 q_half = df_sub[thing].quantile(0.75)
                 q_90 = df_sub[thing].mean()
                 
                 g = sns.histplot(df_sub[thing], 
-                                 ax=ax, kde=False, label=genH, binrange=(0, 10), **kws)
+                                 ax=ax, kde=False, label=genH, binrange=(-10, 10), **kws)
                 palette = sns.color_palette()
                 color = palette[k % len(palette)]
                 ax.axvline(q_half, color=color, linestyle='--', label=f'75th percentile {genH}')
@@ -257,13 +261,18 @@ def plot_hist(df_clean, thing='on_commsub_mag', pattern_cca2=overall_pattern, **
             
             if i == 0 and (pattern == 0 or pattern == 3):
                 ax.legend(title='genH')
-            ax.set_xlim(0, q)
+            ax.set_xlim(qlow, q)
             
     plt.tight_layout()
     plt.suptitle(f'{thing}')
     plt.subplots_adjust(top=0.95)
     plt.show()
     return g
+
+
+
+plt.close('all')
+plot_hist(df_clean, thing='on_commsub', stat="density", alpha=0.3)
 
 plt.close('all')
 plot_hist(df_clean, thing='on_commsub_mag', stat="density", alpha=0.3)

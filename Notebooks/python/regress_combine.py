@@ -3,7 +3,8 @@ import os
 import glob
 
 # specify the directory you're working in
-folder = '/Volumes/MATLAB-Drive/Shared/figures/tables/'
+intermediate = "midpattern=true"
+folder = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/'
 # find all CSV files in the directory
 all_files = glob.glob(os.path.join(folder,'*_faxis=Inf*_regress.csv'))
 # filter the files to only those with 'faxis=Inf' in their title

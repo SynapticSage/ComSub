@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 import os
 import seaborn as sns
 
-folder = '/Volumes/MATLAB-Drive/Shared/figures/tables/'
-plotfolder='/Volumes/MATLAB-Drive/Shared/figures/cca_regress_python/'
+intermediate = "midpattern=true"
+folder = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/'
+plotfolder=f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/cca_regress_python/'
 if not os.path.exists(plotfolder):
     os.makedirs(plotfolder)
 
@@ -18,29 +19,47 @@ significant_df = df[(df['pvalue_U'] < 0.05) & (df['pvalue_V'] < 0.05)]
 significant_df['animal'] = significant_df['filename'].apply(lambda x: os.path.basename(x).split('_')[0])
 
 # remove 60 hz from coherence -- because coherence sensitive to 60 hz noise
-significant_df = significant_df.query('(field == "coherence" & (f < 57 | f > 63)) | field != "coherence"')
+notch = significant_df.f.unique()[significant_df.query('field=="Cavg"').set_index('f').coef_U.abs().groupby('f').mean().argmax()]
+significant_df = significant_df.query('(field == "Cavg" & (f < (@notch-4) | f > (@notch+4))) | field != "Cavg"')
 
 # Take the absolute value of coef_U and coef_V
 significant_df['abs_coef_U'] = np.abs(significant_df['coef_U'])
 significant_df['abs_coef_V'] = np.abs(significant_df['coef_V'])
-
+significant_df['abs_coef_difference'] = significant_df['abs_coef_U'] - significant_df['abs_coef_V']
+significant_df['coef_difference'] = significant_df['coef_U'] - significant_df['coef_V']
+significant_df['abs_coef_U_strat'] = significant_df['abs_coef_U'] + 0.20
+significant_df['abs_coef_V_strat'] = significant_df['abs_coef_V'] - 0.20
 # Compute the mean of the absolute values of coef_U and coef_V
 significant_df['coef_mean'] = significant_df[['abs_coef_U', 'abs_coef_V']].mean(axis=1)
+significant_df['smooth_abs_coef_difference'] = significant_df.groupby(['field', 'animal','coef_i']).rolling(5, center=True).mean().reset_index()['abs_coef_difference']
 
 # ------------------------------
 
 # Create a seaborn plot, splitting by 'field' in the columns
 # Set sharey=False to not share the y-axis across subplots
-g = sns.FacetGrid(significant_df, col="field", col_wrap=5, height=4, aspect=1, sharey=False)
-g.map(sns.lineplot, 'f', 'coef_mean', marker='o')
-
+g = sns.FacetGrid(significant_df, col="field", col_wrap=5, height=4, aspect=1, sharey=True)
+g.map(sns.lineplot, 'f', 'coef_mean', marker='o', color='black', alpha=0.5)
+g.map(sns.lineplot, 'f', 'abs_coef_U_strat', marker='o', color='red', alpha=0.5, errorbar=None)
+g.map(sns.lineplot, 'f', 'abs_coef_V_strat', marker='o', color='blue', alpha=0.5, errorbar=None)
 # Add titles to the subplots
 g.set_titles("{col_name}")
-
 # Show the plot
 plt.show()
 plt.savefig(os.path.join(plotfolder, 'coef_mean_overall.png'))
 plt.savefig(os.path.join(plotfolder, 'coef_mean_overall.pdf'))
+
+# ------------------------------
+
+# # Create a seaborn plot, splitting by 'field' in the columns
+# # Set sharey=False to not share the y-axis across subplots
+# g = sns.FacetGrid(significant_df, col="field", col_wrap=5, height=4, aspect=1, sharey=True)
+# g.map(sns.lineplot, 'f', 'smooth_abs_coef_difference', marker='o', color='black', alpha=0.5)
+# # Add titles to the subplots
+# g.set_titles("{col_name}")
+# # Show the plot
+# plt.show()
+# plt.savefig(os.path.join(plotfolder, 'coef_mean_overall.png'))
+# plt.savefig(os.path.join(plotfolder, 'coef_mean_overall.pdf'))
 
 # ------------------------------
 # OVERALL_10+_word_LONG_TITLE: "Frequency vs Mean Coefficient, split by 'field' in the columns"
@@ -51,8 +70,6 @@ plt.savefig(os.path.join(plotfolder, 'coef_mean_overall.pdf'))
 
 # Extract 'animal' from 'filename' and add it as a new column to the DataFrame
 significant_df['animal'] = \
-        pilot#TextQueuedForInsertion()
-        
         significant_df['filename'].apply(lambda x: os.path.basename(x).split('_')[0])
 
 # Create a seaborn plot, splitting by 'field' in the columns and 'meas' in the rows

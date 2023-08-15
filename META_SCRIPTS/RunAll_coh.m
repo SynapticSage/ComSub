@@ -18,6 +18,8 @@ Option = option.defaults();
 Option.tableAppend  = "_coh";
 Option.analysis.cca = true;
 Option.midpattern   = true;
+tableCheck = true; % Set to true if you want to check RunsSummary table
+X = datetime('now') - hours(18); % Set to the minimum timestamp you want to check RunsSummary table for
 % Option.analysis.checks = true;
 
 animal_list = [...
@@ -51,20 +53,17 @@ disp(" -----------------------------------------")
 disp("Press any key to continue");
 pause
 first = false;
-
 dopar = false;
 if dopar
     jobs = [];
 end
 
 %% Run
-X = datetime('now') - hours(3);
 dates = NaT(numel(RunsSummary.timestamp),1);
 for i = 1:numel(RunsSummary.timestamp)
     dates(i) = datetime(RunsSummary.timestamp(i));
 end
 [cntAn, cntH, cntZ]         = deal(0);
-tableCheck = false; % Set to true if you want to check RunsSummary table
 for zsc = progress(zvals,'Title','zscore');  cntZ = cntZ + 1;
 for genH_= progress(h_methods,'Title','genH method'); cntH = cntH + 1;
 for iAnimal = progress(1:numel(animal_list),'Title','Animal'); cntAn = cntAn + 1;
@@ -75,11 +74,17 @@ for iAnimal = progress(1:numel(animal_list),'Title','Animal'); cntAn = cntAn + 1
             % Check if the combination of animal and generateH exists in RunsSummary and its timestamp is not older than X
             mask = RunsSummary.animal == Option.animal & ... 
                    RunsSummary.generateH == Option.generateH & ...
+                   RunsSummary.midpattern == Option.midpattern & ...
                    RunsSummary.preProcess_zscore == Option.preProcess_zscore & ...
                    dates > X;
             if any(mask)
+                disp("")
                 disp("Skipping as entry found in RunsSummary with recent timestamp");
+                pause(0.25)
                 continue
+            else
+                pause(0.25)
+                disp("No entry found in RunsSummary with recent timestamp... running...");
             end
         end
         disp(newline + "-------------------------------");
@@ -106,6 +111,7 @@ for iAnimal = progress(1:numel(animal_list),'Title','Animal'); cntAn = cntAn + 1
             %end
         end
         table.combineAndUpdateTables("RunsSummary_*", "RunsSummary");
+        table.combineAndUpdateTables("DetailedRunsSummary_*", "DetailedRunsSummary");
         disp("finished " + Option.animal + " " + Option.generateH + " " + Option.preProcess_zscore + "<---" + string(datetime('now')));
         close all
 end % genH

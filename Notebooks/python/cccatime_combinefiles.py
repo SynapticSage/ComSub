@@ -4,12 +4,15 @@ import os
 from tqdm import tqdm
 
 # Glob pattern to match the files
-folder = '/Volumes/MATLAB-Drive/Shared/figures/tables/'
-networkpat = "power"
-pattern = "*{networkpat}ccatime.csv"
+intermediate = "midpattern=true"
+folder       = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/'
+networkpat   = "coherence"
+pattern = f"*{networkpat}ccatime.csv"
 
 # Get a list of all matching files
 files = glob.glob(os.path.join(folder, pattern))
+if len(files) == 0:
+    raise ValueError("No files found matching pattern {}".format(pattern))
 
 # Initialize an empty dictionary to hold dataframes
 dfs = {}
