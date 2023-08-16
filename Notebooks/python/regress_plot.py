@@ -13,7 +13,6 @@ if not os.path.exists(plotfolder):
 # Read the CSV file into a dataframe
 df = pd.read_csv(os.path.join(folder, 'combined_faxis=Inf_regress.csv'))
 
-
 # Filter for rows where pvalue_U and pvalue_V are both significant (less than 0.05)
 significant_df = df[(df['pvalue_U'] < 0.05) & (df['pvalue_V'] < 0.05)]
 significant_df['animal'] = significant_df['filename'].apply(lambda x: os.path.basename(x).split('_')[0])

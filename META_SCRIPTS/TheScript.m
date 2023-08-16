@@ -23,27 +23,20 @@ else
 end
 hash = store.gethash(Option);
 disp("Hash is: " + hash)
-if ~exist('RunsSummary','var')
+if exist('RunsSummary','var')
     load RunsSummary
     if ismember(hash, RunsSummary.hash), disp("config exists!")
     else, disp("new configuration")
+        assert(~exist(hashdefine(hash + ".mat"), 'file'))
     end
 end
 %%%%%%%%%%%%%%%% DISPLAY OUR OPTIONS TO USER %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if isequal(Option.loadifexists, false) && ...
     exist(hash + ".mat", 'file')
     disp("Loading from file: " + store.gethash(Option) + ".mat")
-    m = matfile(store.gethash(Option) + ".mat");
-    % m = matfile("bef0923.mat", "Writable", true);
-    disp("Loaded variables: ")
-    Events             = util.matfile.getdefault(m, 'Events', []);
-    Spk                = util.matfile.getdefault(m, 'Spk', []);
-    Patterns           = util.matfile.getdefault(m, 'Patterns', []);
-    Patterns_overall   = util.matfile.getdefault(m, 'Patterns_overall', []);
-    Components         = util.matfile.getdefault(m, 'Components', []);
-    Components_overall = util.matfile.getdefault(m, 'Components_overall', []);
-    Option             = util.matfile.getdefault(m, 'Option', []);
-    disp("...done")
+    [Events, Spk, Patterns, Patterns_overall, Components, Components_overall, Option] = ...
+        store.load_checkpoint(hash, 'Events', 'Spk', 'Patterns', 'Patterns_overall', ...
+                                'Components', 'Components_overall', 'Option');
 else
     %%%%%%%%%%%%%%%% OBTAIN EVENT MATRICES    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     disp("------------------------")

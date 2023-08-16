@@ -172,10 +172,13 @@ for trajbound in tqdm([0, 1], desc="trajbound", total=2):
 
 
 # Convert the list of dictionaries to a DataFrame
+print("Converting to DataFrame...")
 bootstrap_means_combined = pd.DataFrame(bootstrap_means_combined)
 # Create a new lindist_bin_ind column
+print("Creating lindist_bin_ind column...")
 bootstrap_means_combined["lindist_bin_ind"] = bootstrap_means_combined["lindist_bin"].apply(lambda x: x.right)
 bootstrap_means_combined.loc[:,'bootstrap_mean'] = bootstrap_means_combined.bootstrap_mean.astype(float)
+print("Saving to parquet...")
 bootstrap_means_combined.to_parquet(os.path.join(folder, f'{name}_bootstrap{append}.parquet'), index=False)
 bootstrap_means_combined = pd.read_parquet(os.path.join(folder, f'{name}_bootstrap{append}.parquet'))
 
@@ -190,6 +193,7 @@ bootstrap_means_combined["bootstrap_mean_smooth"] = bootstrap_means_combined.gro
 # ----------------------------------------------------
 # Normalize the bootstrap_mean values
 # ----------------------------------------------------
+print("Normalizing bootstrap_mean values...")
 from sklearn.preprocessing import StandardScaler
 scaler = StandardScaler()
 # scaler = MinMaxScaler()
@@ -230,7 +234,8 @@ bootstrap_means_combined["lindist_bin_mid"] = \
 
 
 
-# -------------------------Checking for duplicates------------------------- ##
+# -------------------------Checking for duplicates-------------------:w
+------ ##
 
 print("Plot the bootstrap means overall")
 
