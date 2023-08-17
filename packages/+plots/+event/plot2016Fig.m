@@ -1,4 +1,4 @@
-% Tries to display raw data like the 2016 figure
+% Tries to display raw data like the 2016 figurevg
 % Inputs:
 %   Spk - struct of spike data
 %   Events - struct of event data
@@ -27,6 +27,8 @@ dim3 = [];
 colorbycomp = true;
 wins = [1, 3];
 shadeOption = false; % show windows : set to true to draw rectangles, and false to skip
+lfp_fields = ["theta", "ripple", "data"];
+use_fft_avg = false; % otherwise use lfp
 % For behavior based plotting
 sets_wanna_plot = {...
 ["u",1,"X_time"], ["v",1,"X_time"], ["u",2,"X_time"], ["v",2,"X_time"], ["u",3,"X_time"], ["v",3,"X_time"],... 
@@ -37,7 +39,7 @@ sets_wanna_plot = {...
 const = option.constants();
 all_animals = const.all_animals;
 all_animals = ["ZT2" setdiff(all_animals, "ZT2")];
-all_animals = setdiff(all_animals, ["ZT2", "ER1"]);
+all_animals = setdiff(all_animals, ["ZT2", "ER1","JS13"]);
 
 %% LOAD DATA
 for animal = all_animals
@@ -67,7 +69,7 @@ if ~exist("efizz", "var") && ~exist('Option') || animal ~= Option.animal
     Patterns_overall = analysis.cca(Patterns_overall, Option);
 end
 pattern_overall_ind = numel(Patterns_overall);
-savefolder_opt = "showwin=" + num2str(shadeOption) + "colorbycomp=" + num2str(colorbycomp) + "dim3=" + num2str(dim3) + "sortprop=" + sortprop + "sortdir=" + sortdir;
+savefolder_opt = "_showwin=" + num2str(shadeOption) + "_colorbycomp=" + num2str(colorbycomp) + "_dim3=" + num2str(dim3) + "_sortprop=" + sortprop + "_sortdir=" + sortdir + "_use_fft_avg=" + use_fft_avg;
 if Option.midpattern
     savefolder = figuredefine("mipattern=true","2016figure", savefolder_opt);
 else
@@ -250,12 +252,30 @@ disp(selected.pattern)
 selected.behavior_time = munge.removeDataGaps(selected_rows.time, ranges, time_gaps, 'gap_thresh', gap_thresh);
 % --- For eeg ---
 selected.lfp.time = munge.removeDataGaps(lfp.hpc.time(ind.lfp), ranges, time_gaps, 'gap_thresh', gap_thresh);
-selected.lfp.hpc.data = lfp.hpc.data(ind.lfp);
-selected.lfp.pfc.data = lfp.pfc.data(ind.lfp);
-selected.lfp.hpc.theta = lfp.hpc.theta.data(ind.lfp);
-selected.lfp.pfc.theta = lfp.pfc.theta.data(ind.lfp);
-selected.lfp.hpc.ripple = lfp.hpc.ripple.data(ind.lfp);
-selected.lfp.pfc.ripple = lfp.pfc.ripple.data(ind.lfp);
+for f = lfp_fields
+    if use_rescale_avg
+        % clamp quantile above below q
+        q = 0.01;
+        tmp = lfp.hpc.(f{1})(ind.lfp);
+        Q = quantile(tmp, [q, 1-q]); 
+        tmp = munge.clamp(tmp, Q(1), Q(2)); 
+        selected.lfp.hpc.(f{1}) = rescale(tmp, -1, 1);
+    else
+        selected.lfp.hpc.(f{1}) = lfp.hpc.(f{1}).data(ind.lfp);
+    end
+end
+for f = lfp_fields
+    if use_rescale_avg
+        % clamp quantile above below q
+        q = 0.01;
+        tmp = lfp.pfc.(f{1})(ind.lfp);
+        Q = quantile(tmp, [q, 1-q]); 
+        tmp = munge.clamp(tmp, Q(1), Q(2)); 
+        selected.lfp.pfc.(f{1}) = rescale(tmp, -1, 1);
+    else
+        selected.lfp.pfc.(f{1}) = lfp.pfc.(f{1}).data(ind.lfp);
+    end
+end
 % WARNING: DO ASSERTIONS
 % --- For windowed eeg ---
 % Create a cell array to store the selected wincenter times for each event type
@@ -279,10 +299,14 @@ names = ["HPC", "PFC", "Theta", "Ripple","U", "V"];
 normalized_heights = rel_heights / sum(rel_heights);
 cumulative_heights = [0, cumsum(normalized_heights)];
 % Define user-defined offsets (if needed)
-user_offset.theta.hpc  = 5; % or whatever value you want
-user_offset.theta.pfc  = 20; % example value
-user_offset.ripple.hpc = -7.5; % or whatever value you want
-user_offset.ripple.pfc = 7.5; % example value
+user_offset.fft.theta.hpc  = 5; % or whatever value you want
+user_offset.fft.theta.pfc  = 20; % example value
+user_offset.fft.ripple.hpc = -7.5; % or whatever value you want
+user_offset.fft.ripple.pfc = 7.5; % example value
+user_offset.lfp.theta.hpc  = -5; % or whatever value you want
+user_offset.lfp.theta.pfc  = 5; % example value
+user_offset.lfp.ripple.hpc = -7.5; % or whatever value you want
+user_offset.lfp.ripple.pfc = 7.5; % example value
 % Compute auto offsets based on the middle of the visualization range
 visualize.theta    = [0, 40];
 visualize.ripple   = [130, max(efizz.f)];
@@ -317,21 +341,22 @@ for i = 1:length(rel_heights)
                 a = selected.pattern.a;
                 stds = std(a, [], 1);
                 sel = bsxfun(@gt, a, 1*stds) | bsxfun(@lt, a, -1*stds);
-                for i = 1:size(spk,2)
-                    if isempty(spk{i})
+                assert(size(sel,1) == size(spk,2));
+                for j = 1:size(spk,2)
+                    if isempty(spk{j})
                         continue;
                     end
                     sptmp = spk;
-                    [sptmp{1:i-1}] = deal([nan]);
-                    [sptmp{i+1:end}] = deal([nan]);
-                    color = [0 0; 0 1; 1 0] * sel(i,1:2)';
+                    [sptmp{1:j-1}] = deal([nan]);
+                    [sptmp{j+1:end}] = deal([nan]);
+                    color = [0 0; 0 1; 1 0] * sel(j,1:2)';
                     darken = 1.2;
                     color = color ./ (norm(color)*darken);
                     color = fillmissing(color, 'constant', 0);
                     lineformat = struct('Color', color);
                     hold on
                     plotSpikeRaster(sptmp, 'PlotType', 'vertline', 'LineFormat', lineformat, ...
-                        'VertSpikePosition', isort(i));
+                        'VertSpikePosition', isort(j));
                     hold on;
                 end
             else
@@ -348,24 +373,25 @@ for i = 1:length(rel_heights)
                 if pattern_overall_ind ~= numel(Patterns_overall)
                     error("colorbycomp only works for pattern_overall_ind = " + numel(Patterns_overall));
                 end
-                a = selected.pattern.a;
-                stds = std(a, [], 1);
-                sel = bsxfun(@gt, a, 1*stds) | bsxfun(@lt, a, -1*stds);
-                for i = 1:size(spk,2)
-                    if isempty(spk{i})
+                b = selected.pattern.b; % FIXED on 2023-08
+                stds = std(b, [], 1);
+                sel = bsxfun(@gt, b, 1*stds) | bsxfun(@lt, b, -1*stds);
+                assert(size(spk,2) == size(sel,1));
+                for j = 1:size(spk,2)
+                    if isempty(spk{j})
                         continue;
                     end
                     sptmp = spk;
-                    [sptmp{1:i-1}] = deal([nan]);
-                    [sptmp{i+1:end}] = deal([nan]);
-                    color = [0 0; 0 1; 1 0] * sel(i,1:2)';
+                    [sptmp{1:j-1}] = deal(nan);
+                    [sptmp{j+1:end}] = deal(nan);
+                    color = [0 0; 0 1; 1 0] * sel(j,1:2)';
                     darken = 1.2;
                     color = color ./ (norm(color)*darken);
                     color = fillmissing(color, 'constant', 0);
                     lineformat = struct('Color', color);
                     hold on
                     plotSpikeRaster(sptmp, 'PlotType', 'vertline', 'LineFormat', lineformat, ...
-                        'VertSpikePosition', isort(i));
+                        'VertSpikePosition', isort(j));
                     hold on;
                 end
             else
@@ -378,15 +404,21 @@ for i = 1:length(rel_heights)
             tmp = log10(abs(selected.efizz.S1'));
             imagesc(selected.efizz.t, efizz.f, tmp); 
             set(gca, 'YDir', 'normal', 'YLim', visualize.theta); 
-            [M,m] = deal(quantile(tmp(:, theta_idx),0.95,'all'), quantile(tmp(:, theta_idx),0.05,'all'));
+            [M,m] = deal(quantile(tmp(:, theta_idx),0.97,'all'), quantile(tmp(:, theta_idx),0.05,'all'));
             cmocean('thermal');
             clim([m, M]);
             hold on;
-            set(gca, 'Layer', 'top');
-            scale = median(structfun(@abs,user_offset.theta));
-            plot(selected.efizz.t, scale*selected.efizz.theta_hpc + auto_offset.theta + user_offset.theta.hpc, 'w', 'DisplayName', 'HPC Theta', 'LineWidth', 1.5);
-            set(gca, 'Layer', 'top');
-            plot(selected.efizz.t, scale*selected.efizz.theta_pfc + auto_offset.theta + user_offset.theta.pfc, 'r', 'DisplayName', 'PFC Theta', 'LineWidth', 1.5);
+            if use_fft_avg
+                scale = median(structfun(@abs,user_offset.theta));
+                set(gca, 'Layer', 'top');
+                plot(selected.efizz.t, scale*selected.efizz.theta_hpc + auto_offset.theta + user_offset.fft.theta.hpc, 'w', 'DisplayName', 'HPC Theta', 'LineWidth', 1.5);
+                set(gca, 'Layer', 'top');
+                plot(selected.efizz.t, scale*selected.efizz.theta_pfc + auto_offset.theta + user_offset.fft.theta.pfc, 'r', 'DisplayName', 'PFC Theta', 'LineWidth', 1.5);
+            else
+                scale = median(structfun(@abs,user_offset.theta));
+                plot(selected.lfp.time, scale*selected.lfp.hpc.theta + auto_offset.theta + user_offset.lfp.theta.hpc, 'DisplayName', 'HPC Theta', 'LineWidth', 1.5, 'Color', [1 1 1 0.5]);
+                plot(selected.lfp.time, scale*selected.lfp.pfc.theta + auto_offset.theta + user_offset.lfp.theta.pfc, 'DisplayName', 'PFC Theta', 'LineWidth', 1.5, 'Color', [1 0 0 0.5]);
+            end
             ylabel('Frequency (Hz)');
             title('Theta Band Average Power for HPC and PFC');
             legend('Location', 'northwest');
@@ -398,9 +430,15 @@ for i = 1:length(rel_heights)
             clim([m, M]);
             set(gca, 'YDir', 'normal', 'YLim', visualize.ripple);
             hold on;
-            scale = 2*median(structfun(@abs,user_offset.ripple));
-            plot(selected.efizz.t, scale*selected.efizz.ripple_hpc + auto_offset.ripple + user_offset.ripple.hpc, 'w', 'DisplayName', 'HPC Ripple', 'LineWidth', 1.5);
-            plot(selected.efizz.t, scale*selected.efizz.ripple_pfc + auto_offset.ripple + user_offset.ripple.pfc, 'r', 'DisplayName', 'PFC Ripple', 'LineWidth', 1.5);
+            if use_fft_avg
+                scale = 2*median(structfun(@abs,user_offset.ripple));
+                plot(selected.efizz.t, scale*selected.efizz.ripple_hpc + auto_offset.ripple + user_offset.fft.ripple.hpc, 'DisplayName', 'HPC Ripple', 'LineWidth', 1.5, 'Color', [1 1 1 0.5]);
+                plot(selected.efizz.t, scale*selected.efizz.ripple_pfc + auto_offset.ripple + user_offset.fft.ripple.pfc, 'DisplayName', 'PFC Ripple', 'LineWidth', 1.5, 'Color', [1 0 0 0.5]);
+            else
+                scale = median(structfun(@abs,user_offset.ripple));
+                plot(selected.lfp.time, scale*selected.lfp.hpc.ripple + auto_offset.ripple + user_offset.lfp.ripple.hpc, 'w', 'DisplayName', 'HPC Ripple', 'LineWidth', 1.5, 'Color', [1 1 1 0.5]);
+                plot(selected.lfp.time, scale*selected.lfp.pfc.ripple + auto_offset.ripple + user_offset.lfp.ripple.pfc, 'r', 'DisplayName', 'PFC Ripple', 'LineWidth', 1.5, 'Color', [1 0 0 0.5]);
+            end
             ylabel('Frequency (Hz)');
             title('Ripple Band Average Power for HPC and PFC');
         case 'U'
@@ -522,6 +560,7 @@ for sect = lindist_to_sections
 end
 sgt = gcf;
 set(gcf, 'Position', get(0, 'Screensize'));  % Maximize the figure window
+plots.positionFigOnRightMonitor(gcf)
 r = @(x) string(replace(replace(replace(x, " ", "_"), ":", "_"), newline, "_"));
 saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.png'));
 saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.fig'));

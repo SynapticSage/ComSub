@@ -45,6 +45,7 @@ if midpattern
     disp("USING MIDPATTERN");
 end
 
+% ----------------------
 % TABLE : ACQUIRE RUNS
 % ----------------------
 % Determine keys to use : you can use this string to arbitrarily select rows
@@ -57,10 +58,11 @@ filtstring = ...
        ..."$numPartition==50",...
        "$quantileToMakeWindows == 0.85",...
        "$midpattern=="+midpattern,...
-       "arrayfun(@(x)isequal($winSize(x,:), [0,0.3]), 1:size($winSize,1))'"];
+       ..."arrayfun(@(x)isequal($winSize(x,:), [0,0.3]), 1:size($winSize,1))'" ... 
+]
 % Get the proper keys
 matching_runs = query.getHashed_stringFilt(RunsSummary, filtstring,...
-                        'mostrecent', ["animal", "generateH","preProcess_zscore"]);
+                'mostrecent', ["animal", "generateH","preProcess_zscore"]);
 disp("Number of matches found: " + height(matching_runs))
 matching_runs(:, ["animal", "generateH", "preProcess_zscore", "hash", "timestamp"]) 
 
