@@ -26,10 +26,10 @@ sortprop = 'dirlindist';
 sortdir = 'descend';
 dim3 = [];
 colorbycomp = true;
-wins = [1, 3];
-shadeOption = false; % show windows : set to true to draw rectangles, and false to skip
+wins = [1, 3]; % which windows to plot
+shadeOption = true; % show windows : set to true to draw rectangles, and false to skip
 lfp_fields = ["theta", "ripple", "data"];
-use_fft_avg = false; % otherwise use lfp
+use_fft_avg = true; % otherwise use lfp
 % For behavior based plotting
 sets_wanna_plot = {...
 ["u",1,"X_time"], ["v",1,"X_time"], ["u",2,"X_time"], ["v",2,"X_time"], ["u",3,"X_time"], ["v",3,"X_time"],... 
@@ -111,14 +111,20 @@ theta_idx  = find(efizz.f >= theta_band(1) & efizz.f <= theta_band(2));
 ripple_idx = find(efizz.f >= ripple_band(1) & efizz.f <= ripple_band(2));
 
 % Compute average power in the theta and ripple bands for both regions
-avg.theta_hpc  = mean(efizz.S1(:, theta_idx), 2);
-avg.ripple_hpc = mean(efizz.S1(:, ripple_idx), 2);
-avg.theta_pfc  = mean(efizz.S2(:, theta_idx), 2);
-avg.ripple_pfc = mean(efizz.S2(:, ripple_idx), 2);
+avg.theta_hpc   = mean(efizz.S1(:, theta_idx), 2);
+avg.ripple_hpc  = mean(efizz.S1(:, ripple_idx), 2);
+avg.theta_pfc   = mean(efizz.S2(:, theta_idx), 2);
+avg.ripple_pfc  = mean(efizz.S2(:, ripple_idx), 2);
+avg.theta_cavg  = mean(efizz.Cavg(:, theta_idx), 2);
+avg.ripple_cavg = mean(efizz.Cavg(:, ripple_idx), 2);
+avg.delta_cavg  = mean(efizz.Cavg(:, delta_idx), 2);
+avg.theta_wpli  = mean(efizz.wpli_avg(:, theta_idx), 2);
+avg.ripple_wpli = mean(efizz.wpli_avg(:, ripple_idx), 2);
+avg.delta_wpli  = mean(efizz.wpli_avg(:, delta_idx), 2);
 
 % Define hpc cells
-cells.hpc = Spk.areaPerNeuron == "CA1";
-cells.pfc = Spk.areaPerNeuron == "PFC";
+cells.hpc = Spk.areaPerNeuron  == "CA1";
+cells.pfc = Spk.areaPerNeuron  == "PFC";
 
 %% TIME :: Finding Valid Gaps in Data
 
@@ -309,21 +315,33 @@ plots.raw.AllEfizz
 plots.raw.Trajectories
 
 plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, 'grid_res', 35, 'sgtitlePrepend', animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option);
+set(gcf, 'Position', get(0, 'Screensize'));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps.png"));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps.fig"));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps.pdf"));
 plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, 'grid_res', 35, 'split_by_reward', true, 'sgtitlePrepend', animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option);
+set(gcf, 'Position', get(0, 'Screensize'));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_splitbyreward.png"));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_splitbyreward.fig"));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_splitbyreward.pdf"));
 plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, 'grid_res', 35, 'sgtitlePrepend', "STDEV: "  + animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option, 'useRollingStd', true)
+set(gcf, 'Position', get(0, 'Screensize'));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd.png"));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd.fig"));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd.pdf"));
 plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, 'grid_res', 35, 'sgtitlePrepend', "STDEV: " + animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option, 'useRollingStd', true, 'split_by_reward', true);
+set(gcf, 'Position', get(0, 'Screensize'));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd_splitbyreward.png"));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd_splitbyreward.fig"));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd_splitbyreward.pdf"));
+
+fig(animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option + " corr");clf;
+plots.raw.corr
+saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_corr.png"));
+saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_corr.fig"));
+saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_corr.pdf"));
+
+close all
 
 end % FOR_EPOCH
 end % FOR_TRAJBOUND

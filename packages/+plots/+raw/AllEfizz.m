@@ -11,14 +11,22 @@ names = ["HPC", "PFC", "Theta", "Ripple","U", "V"];
 normalized_heights = rel_heights / sum(rel_heights);
 cumulative_heights = [0, cumsum(normalized_heights)];
 % Define user-defined offsets (if needed)
-user_offset.fft.theta.hpc  = 5; % or whatever value you want
-user_offset.fft.theta.pfc  = 20; % example value
-user_offset.fft.ripple.hpc = -7.5; % or whatever value you want
-user_offset.fft.ripple.pfc = 7.5; % example value
-user_offset.lfp.theta.hpc  = -5; % or whatever value you want
-user_offset.lfp.theta.pfc  = 5; % example value
-user_offset.lfp.ripple.hpc = -7.5; % or whatever value you want
-user_offset.lfp.ripple.pfc = 7.5; % example value
+user_offset.fft.theta.hpc   = -5;    
+user_offset.fft.theta.pfc   = 5;   
+user_offset.fft.theta.wpli  = 0;
+user_offset.fft.theta.cavg  = 0;
+user_offset.fft.ripple.hpc  = -7.5; 
+user_offset.fft.ripple.pfc  = 7.5;  
+user_offset.fft.ripple.wpli = 0;    
+user_offset.fft.ripple.cavg = 0;    
+user_offset.lfp.theta.hpc   = -5;   
+user_offset.lfp.theta.pfc   = 5;    
+user_offset.lfp.theta.wpli  = 0;    
+user_offset.lfp.theta.cavg  = 0;    
+user_offset.lfp.ripple.hpc  = -7.5; 
+user_offset.lfp.ripple.pfc  = 7.5;  
+user_offset.lfp.ripple.wpli = 0;    
+user_offset.lfp.ripple.cavg = 0;    
 % Compute auto offsets based on the middle of the visualization range
 visualize.theta    = [0, 40];
 visualize.ripple   = [130, max(efizz.f)];
@@ -126,10 +134,14 @@ for i = 1:length(rel_heights)
                 plot(selected.efizz.t, scale*selected.efizz.theta_hpc + auto_offset.theta + user_offset.fft.theta.hpc, 'w', 'DisplayName', 'HPC Theta', 'LineWidth', 1.5);
                 set(gca, 'Layer', 'top');
                 plot(selected.efizz.t, scale*selected.efizz.theta_pfc + auto_offset.theta + user_offset.fft.theta.pfc, 'r', 'DisplayName', 'PFC Theta', 'LineWidth', 1.5);
+                plot(selected.efizz.t, scale*selected.efizz.theta_wpli + auto_offset.theta + user_offset.fft.theta.wpli, 'k', 'DisplayName', 'WPLI Theta', 'LineWidth', 1.5, 'LineStyle', ':');
+                plot(selected.efizz.t, scale*selected.efizz.theta_cavg + auto_offset.theta + user_offset.fft.theta.cavg, 'k', 'DisplayName', 'C-Avg Theta', 'LineWidth', 1.5, 'LineStyle', '--');
             else
                 scale = median(structfun(@abs,user_offset.theta));
                 plot(selected.lfp.time, scale*selected.lfp.hpc.theta + auto_offset.theta + user_offset.lfp.theta.hpc, 'DisplayName', 'HPC Theta', 'LineWidth', 1.5, 'Color', [1 1 1 0.5]);
                 plot(selected.lfp.time, scale*selected.lfp.pfc.theta + auto_offset.theta + user_offset.lfp.theta.pfc, 'DisplayName', 'PFC Theta', 'LineWidth', 1.5, 'Color', [1 0 0 0.5]);
+                plot(selected.efizz.t, scale*selected.efizz.theta_wpli + auto_offset.theta + user_offset.fft.theta.wpli, 'k', 'DisplayName', 'WPLI Theta', 'LineWidth', 1.5, 'LineStyle', ':');
+                plot(selected.efizz.t, scale*selected.efizz.theta_cavg + auto_offset.theta + user_offset.fft.theta.cavg, 'k', 'DisplayName', 'C-Avg Theta', 'LineWidth', 1.5, 'LineStyle', '--');
             end
             ylabel('Frequency (Hz)');
             title('Theta Band Average Power for HPC and PFC');
@@ -150,6 +162,8 @@ for i = 1:length(rel_heights)
                 scale = median(structfun(@abs,user_offset.ripple));
                 plot(selected.lfp.time, scale*selected.lfp.hpc.ripple + auto_offset.ripple + user_offset.lfp.ripple.hpc, 'w', 'DisplayName', 'HPC Ripple', 'LineWidth', 1.5, 'Color', [1 1 1 0.5]);
                 plot(selected.lfp.time, scale*selected.lfp.pfc.ripple + auto_offset.ripple + user_offset.lfp.ripple.pfc, 'r', 'DisplayName', 'PFC Ripple', 'LineWidth', 1.5, 'Color', [1 0 0 0.5]);
+                plot(selected.efizz.t, scale*selected.efizz.ripple_wpli + auto_offset.ripple + user_offset.fft.ripple.wpli, 'k', 'DisplayName', 'WPLI Ripple', 'LineWidth', 1.5, 'LineStyle', ':');
+                plot(selected.efizz.t, scale*selected.efizz.ripple_cavg + auto_offset.ripple + user_offset.fft.ripple.cavg, 'k', 'DisplayName', 'C-Avg Ripple', 'LineWidth', 1.5, 'LineStyle', '--');
             end
             ylabel('Frequency (Hz)');
             title('Ripple Band Average Power for HPC and PFC');
@@ -173,6 +187,11 @@ for i = 1:length(rel_heights)
                 plots.fill_curve(selected.pattern.X_time, selected.pattern.u(:,3), 'r')
                 alpha(0.1);
             end
+            sumabs = true;
+            if sumabs
+                % add in light dotted black the sum of hte absolute values of the top 3 components
+                plot(selected.pattern.X_time, sum(abs(selected.pattern.u(:,1:3)),2), 'DisplayName', 'HPC U, 1-3', 'Color', [0 0 0 0.2], 'LineWidth', 2, 'LineStyle', ':');
+            end
             yline(0, 'Color', 'k', 'LineWidth', 1.5, 'LineStyle', ':');
             ylabel('U Component');
             title('U Component of hpc-pfc communication');
@@ -188,6 +207,11 @@ for i = 1:length(rel_heights)
                 plot(selected.pattern.X_time, selected.pattern.v(:,dim3), 'DisplayName', 'PFC V, 3', 'Color', [1 0 0 0.2], 'LineWidth', 0.5);
                 plots.fill_curve(selected.pattern.X_time, selected.pattern.v(:,3), 'r');
                 alpha(0.1);
+            end
+            sumabs = true;
+            if sumabs
+                % add in light dotted black the sum of hte absolute values of the top 3 components
+                plot(selected.pattern.X_time, sum(abs(selected.pattern.v(:,1:3)),2), 'DisplayName', 'PFC V, 1-3', 'Color', [0 0 0 0.2], 'LineWidth', 2, 'LineStyle', ':');
             end
             % Shading for V Component 2
             yline(0, 'Color', 'k', 'LineWidth', 1.5, 'LineStyle', ':');
@@ -230,15 +254,20 @@ for i = 1:length(rel_heights)
         hold on;
         % Iterate over the windows in cellOfWindows
         for netpat = 1:numel(selected.cellOfWindows)
-        if ismember(netpat, shadeOption)
+        if ismember(netpat, wins)
         for win_idx = 1:size(selected.cellOfWindows{netpat}, 1)
             currWin = selected.cellOfWindows{netpat}(win_idx, :);
             % Shade the region using patch
+            if colorbycomp
+                color = compcolors(netpat, :);
+            else
+                color = [0.8, 0.8, 0.8];
+            end
             yLimits = ylim(thisax);
             hPatch = patch('XData', [currWin(1), currWin(1), currWin(2), currWin(2)], ...
                   'YData', [yLimits(1), yLimits(2), yLimits(2), yLimits(1)], ...
-                  'FaceColor', [0.8, 0.8, 0.8], 'EdgeColor', 'none', ...
-                  'FaceAlpha', 0.2, 'Parent', ax(rowcnt));
+                  'FaceColor', color, 'EdgeColor', 'none', ...
+                  'FaceAlpha', 0.3, 'Parent', ax(rowcnt));
                         % Ensure this patch is not added to legend
             hAnnotation = get(hPatch, 'Annotation');
             legendInfo = get(hAnnotation, 'LegendInformation');
@@ -279,6 +308,7 @@ set(gcf, 'Position', get(0, 'Screensize'));  % Maximize the figure window
 % plots.positionFigOnRightMonitor(gcf)
 r = @(x) string(replace(replace(replace(x, " ", "_"), ":", "_"), newline, "_"));
 saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.png'));
+saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.pdf'));
 saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.fig'));
 
 % width = 600;

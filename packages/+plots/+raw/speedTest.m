@@ -157,3 +157,28 @@ interp_efizz_theta_power = interp_efizz_theta_power(valid_idx_theta);
 disp(['Regression Coefficient between eFizz Theta and LFP Theta: ', num2str(B_theta(2))]);
 disp(['R-squared between eFizz Theta and LFP Theta: ', num2str(stats_theta(1))]);
 
+% Regression: using the smoothed lfp.hpc theta as independent variable
+
+% Interpolating to match time points
+interp_efizz_to_patterns_u = interp1(selected.efizz.t, selected.efizz.theta_cavg, selected.pattern.X_time);
+interp_patterns_u_to_efizz = interp1(selected.pattern.X_time, selected.pattern.u(:,1), selected.efizz.t);
+
+interp_efizz_to_patterns_v = interp1(selected.efizz.t, selected.efizz.theta_cavg, selected.pattern.X_time);
+interp_patterns_v_to_efizz = interp1(selected.pattern.X_time, selected.pattern.v(:,1), selected.efizz.t);
+
+% Regression for u and theta_cavg
+valid_idx_u = ~isnan(interp_efizz_to_patterns_u);
+[B_efizz_to_u,~,~,~,stats_efizz_to_u] = regress(selected.pattern.u(valid_idx_u,1), [ones(sum(valid_idx_u), 1), interp_efizz_to_patterns_u(valid_idx_u)']);
+
+valid_idx_u_reverse = ~isnan(interp_patterns_u_to_efizz);
+[B_u_to_efizz,~,~,~,stats_u_to_efizz] = regress(selected.efizz.theta_cavg(valid_idx_u_reverse), [ones(sum(valid_idx_u_reverse), 1), interp_patterns_u_to_efizz(valid_idx_u_reverse)']);
+
+% Displaying regression results for u
+disp(['Regression Coefficient for eFizz to Patterns U: ', num2str(B_efizz_to_u(2))]);
+disp(['R-squared for eFizz to Patterns U: ', num2str(stats_efizz_to_u(1))]);
+disp(['Regression Coefficient for Patterns U to eFizz: ', num2str(B_u_to_efizz(2))]);
+disp(['R-squared for Patterns U to eFizz: ', num2str(stats_u_to_efizz(1))]);
+
+% Repeat regression for v
+% (You can do this similarly, as done for u)
+

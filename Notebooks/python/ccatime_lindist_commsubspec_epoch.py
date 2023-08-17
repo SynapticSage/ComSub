@@ -325,18 +325,17 @@ for epoch in tqdm(animal_bootstrap_means_combined["epoch"].unique(), desc="epoch
             axes[i, j].tick_params(axis='x', rotation=45)
             # Add a legend
             axes[i, j].legend()
+    if not os.path.exists(figfolder):
+        os.makedirs(figfolder)
+    fig.savefig(figfolder + f'lindist_bootstrap{append}_{field}_balancedanim_collapseanimals_{epoch}.png', dpi=300)
+    fig.savefig(figfolder + f'lindist_bootstrap{append}_{field}_balancedanim_collapseanimals_{epoch}.svg', dpi=300)
+    fig.savefig(figfolder + f'lindist_bootstrap{append}_{field}_balancedanim_collapseanimals_{epoch}.pdf', dpi=300)
 
 # Improve the layout
 plt.tight_layout()
 # Add space for the overall title
 # fig.subplots_adjust(top=0.92)
 plt.show()
-
-if not os.path.exists(figfolder):
-    os.makedirs(figfolder)
-plt.savefig(figfolder + f'lindist_bootstrap{append}_{field}_balancedanim_collapseanimals.png', dpi=300)
-plt.savefig(figfolder + f'lindist_bootstrap{append}_{field}_balancedanim_collapseanimals.svg', dpi=300)
-plt.savefig(figfolder + f'lindist_bootstrap{append}_{field}_balancedanim_collapseanimals.pdf', dpi=300)
 
 
 # ------------------------------------------------------
@@ -416,7 +415,6 @@ for column in tqdm(component_fill_bases.keys(),total=len(component_fill_bases.ke
     plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_epoch.png"), dpi=300)
     plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_epoch.pdf"), dpi=300)
     # plt.close('all')
-
 
 # ------------------------------------------------------
 # By animal

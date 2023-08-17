@@ -6,6 +6,10 @@ sampled_X = behavior.X(rand_indices);
 sampled_Y = behavior.Y(rand_indices);
 xlims = quantile(sampled_X, [0.01, 0.99]);
 ylims = quantile(sampled_Y, [0.01, 0.99]);
+pick = 20;
+disp("Picking " + pick + " trajectories to plot");
+L = length(unique_traj);
+randset = sort(randperm(L, min(L,pick)));
 
 % Parameters for the behavior plot
 for set_to_plot = sets_wanna_plot(:)' %FOR_SET_TO_PLOT
@@ -17,9 +21,6 @@ for set_to_plot = sets_wanna_plot(:)' %FOR_SET_TO_PLOT
     data_name = set_to_plot{1}(1);
     data_col  = double(set_to_plot{1}(2));
     normalized = "minmaxabs";
-    pick = 12;
-    L = length(unique_traj);
-    randset = sort(randperm(L, min(L,pick)));
     background_color = [0 0 0];
     % background_color = [1 1 1];
 
