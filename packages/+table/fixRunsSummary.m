@@ -36,6 +36,7 @@ function fixRunsSummary(tableFile, columnName, optionAttribute, varargin)
         % Load the corresponding MAT file if it exists
         if exist(matFileName, 'file')
             loadedData = matfile(matFileName);
+            rowToUpdate = RunsSummary.hash == hashValue;
 
             % if first
             %     keyboard
@@ -48,12 +49,12 @@ function fixRunsSummary(tableFile, columnName, optionAttribute, varargin)
                 % Check if the attribute exists in Option
                 if isfield(Option, optionAttribute)
                     disp("Fixing value to " + Option.(optionAttribute) + " for " + hashValue);
-                    RunsSummary.(columnName)(rowsToUpdate) = Option.(optionAttribute);
+                    RunsSummary.(columnName)(rowToUpdate) = Option.(optionAttribute);
                 else
                     warning(['Option attribute "', optionAttribute, '" not found in ', matFileName]);
                     if ~isempty(defaultValue)
                         disp("Fixing value to " + defaultValue + " for " + hashValue);
-                        RunsSummary.(columnName)(rowsToUpdate) = defaultValue;
+                        RunsSummary.(columnName)(rowToUpdate) = defaultValue;
                     end
                 end
             else

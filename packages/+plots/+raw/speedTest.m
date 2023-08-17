@@ -125,3 +125,35 @@ interp_smooth_theta_amp = interp_smooth_theta_amp(valid_idx_smooth_theta);
 disp(['Smoothed Theta Regression Coefficient for LFP: ', num2str(B_smooth_theta(2))]);
 disp(['Smoothed Theta R-squared for LFP: ', num2str(stats_smooth_theta(1))]);
 
+
+% ---- One from the other ----
+% Assuming theta frequency range is already defined as:
+theta_freq_range = [6, 12]; % Example: 4-8Hz
+[~, theta_min_idx] = min(abs(efizz.f - theta_freq_range(1)));
+[~, theta_max_idx] = min(abs(efizz.f - theta_freq_range(2)));
+
+% Calculate the mean theta power in the defined range for efizz.S1
+efizz_theta_power = mean(efizz.S1(:, theta_min_idx:theta_max_idx), 2);
+
+% Determine the number of points corresponding to 1 second for lfp.hpc
+sampling_rate_theta_hpc = round(1 / mean(diff(lfp.hpc.time)));
+window_size_theta_hpc = sampling_rate_theta_hpc; % 1 second window
+
+% Smooth the lfp.hpc theta amplitude using a moving average
+smooth_theta_amp_hpc = movmean(abs(hilbert(lfp.hpc.theta)), window_size_theta_hpc);
+
+% Interpolate efizz theta power to match lfp.hpc time points
+interp_efizz_theta_power = interp1(efizz.t, efizz_theta_power, lfp.hpc.time);
+
+% Regression: using the interpolated efizz theta as independent variable
+% and the smoothed lfp.hpc theta as dependent variable
+valid_idx_theta = ~isnan(interp_efizz_theta_power);
+smooth_theta_amp_hpc_valid = smooth_theta_amp_hpc(valid_idx_theta);
+interp_efizz_theta_power = interp_efizz_theta_power(valid_idx_theta);
+
+[B_theta,~,~,~,stats_theta] = regress(smooth_theta_amp_hpc_valid, [ones(size(interp_efizz_theta_power)); interp_efizz_theta_power]);
+
+% Display regression results
+disp(['Regression Coefficient between eFizz Theta and LFP Theta: ', num2str(B_theta(2))]);
+disp(['R-squared between eFizz Theta and LFP Theta: ', num2str(stats_theta(1))]);
+
