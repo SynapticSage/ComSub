@@ -173,6 +173,7 @@ for i = 1:length(rel_heights)
             hold on;
             plot(selected.pattern.X_time, selected.pattern.u(:,1), 'DisplayName', 'HPC U');
             plots.fill_curve(selected.pattern.X_time, selected.pattern.u(:,1), 'b')
+            clear alpha
             alpha(0.5);
 
             % Shading for U Component 2
@@ -217,6 +218,7 @@ for i = 1:length(rel_heights)
             yline(0, 'Color', 'k', 'LineWidth', 1.5, 'LineStyle', ':');
             plot(selected.pattern.X_time, selected.pattern.v(:,2), 'DisplayName', 'PFC V, 2', 'Color', [0 1 0 0.35], 'LineWidth', 0.5);
             plots.fill_curve(selected.pattern.X_time, selected.pattern.v(:,2), 'g');
+            clear alpha
             alpha(0.3);
             ylabel('V Component');
             title('V Component of hpc-pfc communication');

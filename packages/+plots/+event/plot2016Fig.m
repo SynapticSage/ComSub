@@ -34,13 +34,17 @@ use_fft_avg = true; % otherwise use lfp
 sets_wanna_plot = {...
 ["u",1,"X_time"], ["v",1,"X_time"], ["u",2,"X_time"], ["v",2,"X_time"], ["u",3,"X_time"], ["v",3,"X_time"],... 
 ...["theta_hpc",1,"t"], ["theta_pfc",1,"t"], ["ripple_hpc",1,"t"],["ripple_pfc",1,"t"],...
-...["theta_wpli_hpc",1,"t"], ["theta_wpli_pfc",1,"t"], ["ripple_wpli_hpc",1,"t"],["ripple_wpli_pfc",1,"t"],...
-...["delta_wpli_hpc",1,"t"], ["delta_wpli_pfc",1,"t"], ["theta_wpli_hpc",2,"t"], ["theta_wpli_pfc",2,"t"],...
+["theta_wpli_hpc",1,"t"], ["theta_wpli_pfc",1,"t"], ...
+ ["ripple_wpli",1,"t"],...
+["delta_wpli",1,"t"],...
+["theta_cavg",1,"t"], ...
+["ripple_cavg",1,"t"],...
+["delta_cavg",1,"t"]
 };
 const = option.constants();
 all_animals = const.all_animals;
 all_animals = ["ZT2" setdiff(all_animals, "ZT2")];
-all_animals = setdiff(all_animals, ["ZT2", "ER1","JS13"]);
+% all_animals = setdiff(all_animals, ["ZT2", "ER1","JS13"]);
 compcolors = [
     0,   128, 128; ...  % Strong Teal
     255, 165, 0;   ...  % Strong Orange
@@ -297,22 +301,34 @@ for f = lfp_fields
         selected.lfp.pfc.(f{1}) = lfp.pfc.(f{1}).data(ind.lfp);
     end
 end
-% WARNING: DO ASSERTIONS
 % --- For windowed eeg ---
 % Create a cell array to store the selected wincenter times for each event type
 selected.wins = cell(1, numel(Events.wincenter));
 for j = 1:numel(Events.wincenter)
     % Using the indices from ind.wins, extract the corresponding wincenter times
-    selected.wins{j} = Events.wincenter{j}(ind.wins{j});
-    selected.cellOfWindows{j} = Events.cellOfWindows{j}(ind.wins{j},:);
+    % selected.wins{j} = Events.wincenter{j}(ind.wins{j});
+    % selected.cellOfWindows{j} = Events.cellOfWindows{j}(ind.wins{j},:);
+    selected.wins{j} = munge.removeDataGaps(Events.wincenter{j}(ind.wins{j}), ranges, time_gaps, 'gap_thresh', gap_thresh);
+    col1 = munge.removeDataGaps(Events.cellOfWindows{j}(ind.wins{j},1), ranges, time_gaps, 'gap_thresh', gap_thresh);
+    col2 = munge.removeDataGaps(Events.cellOfWindows{j}(ind.wins{j},2), ranges, time_gaps, 'gap_thresh', gap_thresh);
+    selected.cellOfWindows{j} = [col1, col2];
+    clear col1 col2
 end
 selected.behavior.time = munge.removeDataGaps(selected_rows.time, ranges, time_gaps, 'gap_thresh', gap_thresh);
+selected.pattern.t = selected.efizz.t;
+for f = fieldnames(selected.efizz)'
+    if contains(f{1}, ["ripple", "theta", "delta"])
+        selected.pattern.(f{1}) = selected.efizz.(f{1});
+    end
+end
 
-%% PLOTTING
+%% PLOT: ALL efizz and spiking with behavior
 plots.raw.AllEfizz
+close all
 
-%% Behavior plotting
+%% PLOT: Behavior with certain efizz properties
 plots.raw.Trajectories
+close all
 
 plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, 'grid_res', 35, 'sgtitlePrepend', animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option);
 set(gcf, 'Position', get(0, 'Screensize'));
@@ -334,13 +350,13 @@ set(gcf, 'Position', get(0, 'Screensize'));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd_splitbyreward.png"));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd_splitbyreward.fig"));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd_splitbyreward.pdf"));
+close all
 
 fig(animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option + " corr");clf;
 plots.raw.corr
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_corr.png"));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_corr.fig"));
 saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_corr.pdf"));
-
 close all
 
 end % FOR_EPOCH

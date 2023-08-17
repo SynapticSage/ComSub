@@ -69,6 +69,8 @@ function fixRunsSummary(tableFile, columnName, optionAttribute, varargin)
     % Save the updated RunsSummary back to the file
     disp("Check the updated RunsSummary table in the workspace.");
     keyboard
-    save(tableFile)
+    tf = which(tableFile+".mat");
+    disp("Saving the updated RunsSummary table to " + tf);
+    save(tf, 'RunsSummary');
 end
 

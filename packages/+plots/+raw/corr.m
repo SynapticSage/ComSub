@@ -17,7 +17,7 @@ v_labels = arrayfun(@(x) ['v' num2str(x)], 1:num_v, 'UniformOutput', false);
 x_labels = ['Cavg', u_labels, v_labels];
 
 % 2. Prepare y-axis labels
-y_labels = arrayfun(@(x) num2str(round(x, 2, 'significant')), selected.efizz.f, 'UniformOutput', false);
+y_labels = arrayfun(@(x) num2str(round(x, 2, 'significant')), efizz.f, 'UniformOutput', false);
 y_labels = ['Cavg', y_labels];
 
 % 3. & 4. Plot and customize
@@ -25,12 +25,12 @@ imagesc(correlation_matrix);
 
 % Setting labels
 set(gca, 'XTick', 1:(num_u + num_v + 1), 'XTickLabel', x_labels, 'XTickLabelRotation', 45);
-set(gca, 'YTick', 1:(length(selected.efizz.f) + 1), 'YTickLabel', y_labels);
+set(gca, 'YTick', 1:(length(efizz.f) + 1), 'YTickLabel', y_labels);
 
 % Drawing a white dividing line to separate u and v parts
 hold on;
-plot([1.5, 1.5], [0.5, length(selected.efizz.f) + 2.5], 'w', 'LineWidth', 2); % Vertical line after Cavg
-plot([num_u + 1.5, num_u + 1.5], [0.5, length(selected.efizz.f) + 2.5], 'w', 'LineWidth', 2); % Vertical line separating u and v
+plot([1.5, 1.5], [0.5, length(efizz.f) + 2.5], 'w', 'LineWidth', 2); % Vertical line after Cavg
+plot([num_u + 1.5, num_u + 1.5], [0.5, length(efizz.f) + 2.5], 'w', 'LineWidth', 2); % Vertical line separating u and v
 plot([0.5, num_u + num_v + 2.5], [1.5, 1.5], 'w', 'LineWidth', 2); % Horizontal line after Cavg
 hold off;
 
