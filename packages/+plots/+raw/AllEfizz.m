@@ -276,7 +276,7 @@ for sect = lindist_to_sections
 end
 sgt = gcf;
 set(gcf, 'Position', get(0, 'Screensize'));  % Maximize the figure window
-plots.positionFigOnRightMonitor(gcf)
+% plots.positionFigOnRightMonitor(gcf)
 r = @(x) string(replace(replace(replace(x, " ", "_"), ":", "_"), newline, "_"));
 saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.png'));
 saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.fig'));

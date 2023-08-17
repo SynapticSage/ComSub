@@ -151,7 +151,7 @@ valid_idx_theta = ~isnan(interp_efizz_theta_power);
 smooth_theta_amp_hpc_valid = smooth_theta_amp_hpc(valid_idx_theta);
 interp_efizz_theta_power = interp_efizz_theta_power(valid_idx_theta);
 
-[B_theta,~,~,~,stats_theta] = regress(smooth_theta_amp_hpc_valid, [ones(size(interp_efizz_theta_power)); interp_efizz_theta_power]);
+[B_theta,~,~,~,stats_theta] = regress(smooth_theta_amp_hpc_valid(:), [ones(size(interp_efizz_theta_power)); interp_efizz_theta_power]');
 
 % Display regression results
 disp(['Regression Coefficient between eFizz Theta and LFP Theta: ', num2str(B_theta(2))]);

@@ -1,4 +1,5 @@
 function generate_average_set_heatmap(selected, selected_rows, sets_wanna_plot, varargin)
+% generate_average_set_heatmap: Generates a heatmap of the average
     
     % Input parsing
     p = inputParser;
@@ -7,6 +8,9 @@ function generate_average_set_heatmap(selected, selected_rows, sets_wanna_plot, 
     addRequired(p, 'sets_wanna_plot');
     addParameter(p, 'split_by_reward', false);
     addParameter(p, 'grid_res', 100);
+    addParameter(p, 'sgtitlePrepend', '');
+    addParameter(p, 'useRollingStd', false); % new option for using rolling std
+    addParameter(p, 'rollingStdWindow', 7); % default window size for rolling std
     parse(p, selected, selected_rows, sets_wanna_plot, varargin{:});
     
     split_by_reward = p.Results.split_by_reward;
@@ -25,17 +29,28 @@ function generate_average_set_heatmap(selected, selected_rows, sets_wanna_plot, 
     end
 
     % Setup the figure
-    f = fig('Trajectory Heatmaps');
+    sgtitle_text = 'Trajectory Heatmaps';
+    if ~isempty(p.Results.sgtitlePrepend)
+        sgtitle_text = char(string(p.Results.sgtitlePrepend) + newline + sgtitle_text);
+    end
+    f = fig(sgtitle_text);
 
     for set_idx = 1:numSets
         % Extract the current set_to_plot parameters
         set_to_plot = sets_wanna_plot{set_idx};
-        time_name = set_to_plot{1}(3);
-        data_name = set_to_plot{1}(1);
-        comp_name = double(set_to_plot{1}(2));
+        time_name = set_to_plot(3);
+        data_name = set_to_plot(1);
+        comp_name = double(set_to_plot(2));
+        % Compute rolling standard deviation if the flag is set
+        if p.Results.useRollingStd
+            selected.pattern.(data_name) = movstd(selected.pattern.(data_name), p.Results.rollingStdWindow, 'omitnan');
+        end
+        data_for_coloring = interp1(selected.pattern.(time_name), selected.pattern.(data_name)(:,comp_name), selected.behavior.time, 'nearest','extrap');
+        extrap_locations = isnan(interp1(selected.pattern.(time_name), selected.pattern.(data_name)(:,comp_name), selected.behavior.time, 'nearest'));
+        data_for_coloring(extrap_locations) = NaN;
         
         % Form title string
-        title_str = strcat(string(data_name) + ", " + comp_name, ' vs ', time_name);
+        title_str = string(data_name) + ", " + comp_name + ' vs ' + time_name;
 
         % Check which trajectories to plot based on the set_to_plot conditions
         inds_set = true(height(selected_rows), 1); % This might need further customization based on conditions
@@ -44,17 +59,30 @@ function generate_average_set_heatmap(selected, selected_rows, sets_wanna_plot, 
         if split_by_reward
             rewarded_values = unique(selected_rows.rewarded);
             for r = 1:length(rewarded_values)
+                data_grid = zeros(grid_res);
                 heatmap_grid = zeros(grid_res);
                 inds = inds_set & selected_rows.rewarded == rewarded_values(r);
                 for i = find(inds)'
+                    if isnan(data_for_coloring(i))
+                        continue;
+                    end
+                    data_grid(y_indices_all(i), x_indices_all(i)) = data_grid(y_indices_all(i), x_indices_all(i)) + data_for_coloring(i);
                     heatmap_grid(y_indices_all(i), x_indices_all(i)) = heatmap_grid(y_indices_all(i), x_indices_all(i)) + 1;
                 end
 
                 % Normalize and plot
-                heatmap_grid = heatmap_grid / max(heatmap_grid(:));
+                heatmap_grid = heatmap_grid / sum(heatmap_grid(:));
+                heatmap_grid = data_grid ./ heatmap_grid;
                 subplot(subplot_dim1, subplot_dim2, (set_idx-1)*2 + r);
                 imagesc(heatmap_grid);
-                colormap(cmocean('balance'));
+                if ~p.Results.useRollingStd
+                    cm = [cmocean('balance',1024); 0 0 0];
+                    colormap(cm);
+                    clim([-nanmax(abs(heatmap_grid(:))), nanmax(abs(heatmap_grid(:)))]);
+                else
+                    cm = [cmocean('thermal',1024); 0 0 0];
+                    colormap(cm);
+                end
                 title([title_str, ' Rewarded:', num2str(rewarded_values(r))]);
                 colorbar;
                 axis equal;
@@ -62,16 +90,29 @@ function generate_average_set_heatmap(selected, selected_rows, sets_wanna_plot, 
             end
         else
             heatmap_grid = zeros(grid_res);
+            data_grid    = zeros(grid_res);
             inds = inds_set;
             for i = find(inds)'
+                if isnan(data_for_coloring(i))
+                    continue;
+                end
+                data_grid(y_indices_all(i), x_indices_all(i)) = data_grid(y_indices_all(i), x_indices_all(i)) + data_for_coloring(i);
                 heatmap_grid(y_indices_all(i), x_indices_all(i)) = heatmap_grid(y_indices_all(i), x_indices_all(i)) + 1;
             end
 
             % Normalize and plot
-            heatmap_grid = heatmap_grid / max(heatmap_grid(:));
+            heatmap_grid = heatmap_grid / sum(heatmap_grid(:));
+            heatmap_grid = data_grid ./ heatmap_grid;
             subplot(subplot_dim1, subplot_dim2, set_idx);
             imagesc(heatmap_grid);
-            colormap(cmocean('balance'));
+            if ~p.Results.useRollingStd
+                cm = [cmocean('balance',1024); 0 0 0];
+                colormap(cm);
+                clim([-nanmax(abs(heatmap_grid(:))), nanmax(abs(heatmap_grid(:)))]);
+            else
+                cm = [cmocean('thermal',1024); 0 0 0];
+                colormap(cm);
+            end
             title(title_str);
             colorbar;
             axis equal;

@@ -189,6 +189,7 @@ print("rolling mean...")
 bootstrap_means_combined["bootstrap_mean_smooth"] = bootstrap_means_combined.groupby(["animal","epoch","column", "trajbound", "iboot"])["bootstrap_mean"].transform(lambda x: x.rolling(7, 1).mean())
 print("rolling interp...")
 bootstrap_means_combined["bootstrap_mean_smooth"] = bootstrap_means_combined.groupby(["animal","epoch","column", "trajbound", "iboot"])["bootstrap_mean_smooth"].transform(lambda x: x.interpolate())
+
       
 # ----------------------------------------------------
 # Normalize the bootstrap_mean values
@@ -221,21 +222,29 @@ bootstrap_means_combined = pd.read_parquet(
         os.path.join(folder, f'{name}_bootstrap_normalized{append}_{str(scaler).replace("()","").lower()}.parquet'))
 
 # Add the lindist_bin_mid column back to the DataFrame
-
-animal_bootstrap_means_combined = bootstrap_means_combined.groupby(
-        ["iboot", "epoch", "column", "trajbound", "lindist_bin_mid"]).mean().reset_index()
-# ----------------------------------------------------
-# Read Parquet
-# ----------------------------------------------------
-bootstrap_means_combined = pd.read_parquet(os.path.join(folder, f'{name}_bootstrap_normalized{append}.parquet'))
 print("Adding lindist_bin_mid column...")
 bootstrap_means_combined["lindist_bin_mid"] = \
     bootstrap_means_combined["lindist_bin"].apply(lambda x: x.mid)
+# FIXME: PROBLEM WITH EPOCH CUTTING, comment out when fix
+bootstrap_means_combined.query('animal !="ER1"', inplace=True)
+bootstrap_means_combined.to_parquet(
+        os.path.join(folder, f'{name}_bootstrap_normalized{append}_{str(scaler).replace("()","").lower()}.parquet'), index=False)
 
 
+print("Balancing animals...")
+animal_bootstrap_means_combined = bootstrap_means_combined.groupby(
+        ["iboot", "epoch", "column", "trajbound", "lindist_bin_mid"]).mean().reset_index()
+print("Saving to parquet...")
+animal_bootstrap_means_combined.to_parquet(
+        os.path.join(folder, f'{name}_bootstrap_normalized{append}_balancedanim.parquet'), index=False)
 
-# -------------------------Checking for duplicates-------------------:w
------- ##
+# ----------------------------------------------------
+# Read Parquet
+# ----------------------------------------------------
+bootstrap_means_combined        = pd.read_parquet(os.path.join(folder, f'{name}_bootstrap_normalized{append}.parquet'))
+animal_bootstrap_means_combined = pd.read_parquet(os.path.join(folder, f'{name}_bootstrap_normalized{append}_balancedanim.parquet'))
+
+# -------------------------Checking for duplicates------------------- ------ ##
 
 print("Plot the bootstrap means overall")
 
