@@ -44,10 +44,12 @@ for index = indices'
                 thisEmpty.(field) = table();
             elseif isnumeric(o(1).(field)) || islogical(o(1).(field)) || ischar(o(1).(field))
                 thisEmpty.(field) = cast([], oTypes.(field));
+            elseif isequal(oTypes.(field), 'datetime')
+                thisEmpty.(field) = NaT;
             else
                 thisEmpty.(field) = [];
                 warnmsg = string(sprintf('No rule for %s''s type => %s ... setting to []', field, oTypes.(field)));
-                if numel(w)>0 || ~any(w == warnmsg)
+                if numel(w)>0 || ~any( w == warnmsg)
                     w(end+1) = string(warning(warnmsg));
                 end
             end

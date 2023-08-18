@@ -25,7 +25,7 @@ for set_to_plot = sets_wanna_plot(:)' %FOR_SET_TO_PLOT
     % background_color = [1 1 1];
 
     % Create figure and tiled layout
-    f = fig(animal + "Behavior Trajectories " +  + epoch_option + " " + sortprop + " trajbound " + trajbound_option + newline + " dataname: " + data_name + ", col: " + data_col);clf;
+    f = fig(animal + " Behavior Trajectories " +  epoch_option + " " + sortprop + " trajbound " + trajbound_option + newline + " dataname: " + data_name + ", col: " + data_col);clf;
     t = tiledlayout('flow', 'TileSpacing', 'compact', 'Padding', 'compact');
 
     % Color data based on some field in the selected structure
@@ -104,7 +104,7 @@ for set_to_plot = sets_wanna_plot(:)' %FOR_SET_TO_PLOT
         xlim(xlims);
         grid on;
     end
-    sgtitle("Behavior Trajectories " +  + epoch_option + " " + sortprop + " trajbound " + trajbound_option + newline + " dataname: " + data_name + ", col: " + data_col);
+    sgtitle("Behavior Trajectories " +  animal + epoch_option + " trajbound=" + trajbound_option + newline + " dataname: " + data_name + ", col: " + data_col);
     sgt = gcf;
     set(gcf, 'Position', get(0, 'Screensize'));  % Maximize the figure window
     r = @(x) string(replace(replace(replace(x, " ", "_"), ":", "_"),newline,"_"));

@@ -32,9 +32,9 @@ lfp_fields = ["theta", "ripple", "data"];
 use_fft_avg = true; % otherwise use lfp
 % For behavior based plotting
 sets_wanna_plot = {...
-["u",1,"X_time"], ["v",1,"X_time"], ["u",2,"X_time"], ["v",2,"X_time"], ["u",3,"X_time"], ["v",3,"X_time"],... 
+["u",1,"X_time"], ["v",1,"X_time"], ["u",2,"X_time"], ["v",2,"X_time"], ["u",3,"X_time"], ["v",3,"X_time"]};
 ...["theta_hpc",1,"t"], ["theta_pfc",1,"t"], ["ripple_hpc",1,"t"],["ripple_pfc",1,"t"],...
-["theta_wpli_hpc",1,"t"], ["theta_wpli_pfc",1,"t"], ...
+sets_wanna_plot_efizz = {["theta_wpli",1,"t"], ...
  ["ripple_wpli",1,"t"],...
 ["delta_wpli",1,"t"],...
 ["theta_cavg",1,"t"], ...
@@ -44,7 +44,7 @@ sets_wanna_plot = {...
 const = option.constants();
 all_animals = const.all_animals;
 all_animals = ["ZT2" setdiff(all_animals, "ZT2")];
-% all_animals = setdiff(all_animals, ["ZT2", "ER1","JS13"]);
+all_animals = setdiff(all_animals, ["ZT2", "ER1"]);
 compcolors = [
     0,   128, 128; ...  % Strong Teal
     255, 165, 0;   ...  % Strong Orange
@@ -101,7 +101,10 @@ if ~exist(savefolder, 'dir')
     mkdir(savefolder);
 end
 %% Specify the epoch, traj, trajall, trajclass, trajbound (use [] if not specifying)
-for epoch_option     = progress(2:2:16,'Title','Epoch'); % e.g., 'EpochName' %FOR_EPOCH
+epochs = num2cell(2:2:16);
+epochs{end+1} = []; 
+for epoch     = progress(epochs,'Title','Epoch') % e.g., 'EpochName' %FOR_EPOCH
+epoch_option = epoch{1};
 % for trajbound_option = [0 1]; % 0 or 1
 for trajbound_option = 0:1; % 0 or 1 FOR_TRAJBOUND
 traj_option      = []; % a specific trajectory index within an epoch
@@ -116,7 +119,7 @@ ripple_idx = find(efizz.f >= ripple_band(1) & efizz.f <= ripple_band(2));
 
 % Compute average power in the theta and ripple bands for both regions
 avg.theta_hpc   = mean(efizz.S1(:, theta_idx), 2);
-avg.ripple_hpc  = mean(efizz.S1(:, ripple_idx), 2);
+avg.ripple_hpc  = mean(efizz.S1(:, ripple_idx), 2)
 avg.theta_pfc   = mean(efizz.S2(:, theta_idx), 2);
 avg.ripple_pfc  = mean(efizz.S2(:, ripple_idx), 2);
 avg.theta_cavg  = mean(efizz.Cavg(:, theta_idx), 2);
@@ -137,6 +140,8 @@ cells.pfc = Spk.areaPerNeuron  == "PFC";
 selected_rows = behavior;
 if ~isempty(epoch_option)
     selected_rows = selected_rows(selected_rows.epoch == epoch_option, :);
+else
+    epoch_option = "all";
 end
 if ~isempty(traj_option)
     selected_rows = selected_rows(selected_rows.traj == traj_option, :);
@@ -246,10 +251,12 @@ selected.spike.timeBinMidPoints = munge.removeDataGaps(Spk.timeBinMidPoints(ind.
 selected.spike.spikeCountMatrix = Spk.spikeCountMatrix(:, ind.spike); 
 % ---- For efizz -----
 selected.efizz.t = munge.removeDataGaps(efizz.t(ind.efizz), ranges, time_gaps, 'gap_thresh', gap_thresh);
-fields = {'S1','S2','Cavg','wpli_avg'};
+fields = {'S1','S2','Cavg','wpli_avg','phi'};
 for f = fields
     selected.efizz.(f{1}) = efizz.(f{1})(ind.efizz, :);
 end
+selected.efizz.phi_cos = cos(selected.efizz.phi);
+selected.efizz.phi_sin = sin(selected.efizz.phi);
 for f = fieldnames(avg)'
     if use_rescale_avg
         % clamp quantile above below q
@@ -330,34 +337,37 @@ close all
 plots.raw.Trajectories
 close all
 
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, 'grid_res', 35, 'sgtitlePrepend', animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option);
-set(gcf, 'Position', get(0, 'Screensize'));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps.png"));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps.fig"));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps.pdf"));
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, 'grid_res', 35, 'split_by_reward', true, 'sgtitlePrepend', animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option);
-set(gcf, 'Position', get(0, 'Screensize'));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_splitbyreward.png"));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_splitbyreward.fig"));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_splitbyreward.pdf"));
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, 'grid_res', 35, 'sgtitlePrepend', "STDEV: "  + animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option, 'useRollingStd', true)
-set(gcf, 'Position', get(0, 'Screensize'));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd.png"));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd.fig"));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd.pdf"));
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, 'grid_res', 35, 'sgtitlePrepend', "STDEV: " + animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option, 'useRollingStd', true, 'split_by_reward', true);
-set(gcf, 'Position', get(0, 'Screensize'));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd_splitbyreward.png"));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd_splitbyreward.fig"));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_averagemaps_rollingstd_splitbyreward.pdf"));
-close all
+options = {'grid_res', 35, 'sgtitlePrepend', prefix};
+prefix = animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option;
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps");
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_splitbyreward");
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_rollingstd");
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_rollingstd_splitbyreward");
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_efizz");
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_splitbyreward_efizz");
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_rollingstd_efizz");
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_rollingstd_splitbyreward_efizz");
+close all;
 
-fig(animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option + " corr");clf;
-plots.raw.corr
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_corr.png"));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_corr.fig"));
-saveas(gcf, fullfile(savefolder, animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option + "_corr.pdf"));
-close all
+%% Correlation plots
+
+prefix = animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option;
+metrics = ["Cavg", "wpli_avg", "phi_cos", "phi_sin", "S1", "S2"];
+
+for metric = metrics
+    fig_title = animal + " epoch=" + epoch_option + " trajbound=" + trajbound_option + metric + " corr";
+    fig(fig_title); clf;
+    plots.raw.corr(selected, efizz, metric);
+    title("Correlation Coefficient Matrix" + newline + fig_title);
+
+    savetitle = prefix + "_corr_" + metric;
+    saveas(gcf, fullfile(savefolder, savetitle + ".png"));
+    saveas(gcf, fullfile(savefolder, savetitle + ".fig"));
+    saveas(gcf, fullfile(savefolder, savetitle + ".pdf"));
+end
+close all;
+
+
 
 end % FOR_EPOCH
 end % FOR_TRAJBOUND

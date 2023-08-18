@@ -1,4 +1,5 @@
 % paths
+tic
 if ~exist('csubpath', 'var')
     commsubspaceToPath;
     addpath(hashdefine())
@@ -16,7 +17,7 @@ RunsSummary(contains(RunsSummary.genH_name, "wpli"),...
 %% load
 multi_epoch = false; % usually first 3, last 3 epochs
 zscr        = true; % zscored or not
-midpattern  = false; % midpattern or not
+midpattern  = true; % midpattern or not
 load("RunsSummary.mat");
 disp(" ---->  Multi epoch: " + multi_epoch)
 disp(" ---->  Zscored: " + zscr)
@@ -44,6 +45,7 @@ if midpattern
     disp("USING MIDPATTERN");
     disp("USING MIDPATTERN");
 end
+pause(0.25);
 
 % ----------------------
 % TABLE : ACQUIRE RUNS
@@ -52,14 +54,14 @@ end
 %   each item of the filtstring is a property to select. $x pulls the x
 %   column and applies the test shown
 filtstring = ...
-["ismember($animal, [""JS21"",""ZT2"",""ER1"",""JS14"",""JS13"",""JS17""])",...
+["ismember($animal, [""JS21"",""ZT2"",""ER1"",""JS14"",""JS13"",""JS17"",""JS15""])",... % RY added 2023
        ..."$spikeBinSize==0.15",...
        "$preProcess_zscore=="+zscr,...
        ..."$numPartition==50",...
        "$quantileToMakeWindows == 0.85",...
        "$midpattern=="+midpattern,...
        ..."arrayfun(@(x)isequal($winSize(x,:), [0,0.3]), 1:size($winSize,1))'" ... 
-]
+]; % WARNING: reason why JS15 missing?
 % Get the proper keys
 matching_runs = query.getHashed_stringFilt(RunsSummary, filtstring,...
                 'mostrecent', ["animal", "generateH","preProcess_zscore"]);
@@ -96,6 +98,7 @@ else
                                 ["animal", "generateH", "preProcess_zscore"]);
     Option = otherData{1}.Option;
 end
+
 assert(~isempty(Option), "Data is empty -- downstream code will fail")
 Patterns = nd.merge(Patterns, Option, 'only', {'animal', 'generateH', 'genH_name'}, ...
                                             'broadcastLike', true,...
@@ -137,10 +140,11 @@ end
 [~,I]  =sortrows([[Option.generateH]; [Option.animal]]');
 Option = Option(I);
 Patterns = Patterns(I,:,:,:,:,:,:);
-P = munge.reshapeByLabels(Patterns, 1, [Option.generateH],  'checksumSplitField', 'animal');
-O = munge.reshapeByLabels(Option, 1,   [Option.generateH], 'checksumSplitField', 'animal');
+% ISSUE: THIS BREAKS FOR MIDPATTERN=1 and ZSCR=1
+P = munge.reshapeByLabels_v2(Patterns, 1, ["genH_name","animal"]);
+O = munge.reshapeByLabels_v2(Option, 1,   ["genH_name","animal"]);
 
 %% Calculate the pattern 
 T = query.getPatternTable(Patterns, Option);
-
 !pushover-cli "Finished PreambFigs"
+disp("Took " + toc + " seconds to load patterns")

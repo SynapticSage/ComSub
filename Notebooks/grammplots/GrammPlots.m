@@ -73,91 +73,91 @@ struct2table(stats.perf.powcoh.hpchpc)
 % `    `---^`---'`---'`---'`        `   '`   '`---^`---'`---|`---'``---'
 %                                                       `---'           
 %
-%% Cornerhist hpc versus pfc FA qOpt
-clf
-figure(7)
-hpcsubset = T.directionality == 'hpc-hpc';
-pfcsubset = T.directionality == 'hpc-pfc';
-hpcsubset = T(hpcsubset,:);
-pfcsubset = T(pfcsubset,:);
-x = hpcsubset.qOpt;
-y = pfcsubset.qOpt;
-subset =  ~hpcsubset.singularWarning;
-g = gramm(  'subset', subset,...
-            'x', x,...
-            'y', y,...
-            'color',     categorical(hpcsubset.patternAbstract),...
-            'lightness', categorical(hpcsubset.control));
-% assert(all(hpcsubset.patternType == pfcsubset.patternAbstract))
-g.facet_grid(categorical(hpcsubset.control), categorical(hpcsubset.patternAbstract))
-% g.geom_point('dodge', 0.5, 'alpha', 0.3, 'jitter',0.1);
-g.geom_abline('style','k:');
-g.stat_cornerhist('edges',-4:0.5:4, 'aspect',1.2);
-g.set_point_options('base_size', 10);
-g.set_text_options('label_scaling', 1.5, 'base_size', 14);
-g.set_names('x', "HPC" +newline+ "regional dimensions", ...
-    'y', 'PFC regional dimensions', ...
-    'Color', 'Pattern', ...
-    'Lightness', 'Treatment/Control')
-g.axe_property('XTickLabelRotation',35)
-g.draw()
+    %% Cornerhist hpc versus pfc FA qOpt
+    clf
+    figure(7)
+    hpcsubset = T.directionality == 'hpc-hpc';
+    pfcsubset = T.directionality == 'hpc-pfc';
+    hpcsubset = T(hpcsubset,:);
+    pfcsubset = T(pfcsubset,:);
+    x = hpcsubset.qOpt;
+    y = pfcsubset.qOpt;
+    subset =  ~hpcsubset.singularWarning;
+    g = gramm(  'subset', subset,...
+                'x', x,...
+                'y', y,...
+                'color',     categorical(hpcsubset.patternAbstract),...
+                'lightness', categorical(hpcsubset.control));
+    % assert(all(hpcsubset.patternType == pfcsubset.patternAbstract))
+    g.facet_grid(categorical(hpcsubset.control), categorical(hpcsubset.patternAbstract))
+    % g.geom_point('dodge', 0.5, 'alpha', 0.3, 'jitter',0.1);
+    g.geom_abline('style','k:');
+    g.stat_cornerhist('edges',-4:0.5:4, 'aspect',1.2);
+    g.set_point_options('base_size', 10);
+    g.set_text_options('label_scaling', 1.5, 'base_size', 14);
+    g.set_names('x', "HPC" +newline+ "regional dimensions", ...
+        'y', 'PFC regional dimensions', ...
+        'Color', 'Pattern', ...
+        'Lightness', 'Treatment/Control')
+    g.axe_property('XTickLabelRotation',35)
+    g.draw()
 
 
-%% Cornerhist dimension complexity vs. regression -- PFC more complex but required fewer prediction dimensions
-clf
-figure(8)
-hpcsubset = T.directionality == "pfc-hpc";
-pfcsubset = T.directionality == "pfc-pfc";
-hpcsubset = T(hpcsubset,:);
-pfcsubset = T(pfcsubset,:);
-% x = hpcsubset.qOpt./hpcsubset.rrDim;
-x1 = pfcsubset.qOpt;
-y1 = pfcsubset.rrDim;
-x2 = hpcsubset.qOpt;
-y2 = hpcsubset.rrDim;
-subset = pfcsubset.generateH == "fromSpectral  fromRipTimes" & ~pfcsubset.singularWarning;
-g1 = gramm(  'subset', subset,...
-            'x', x1,...
-            'y', y1,...
-            'color',     categorical(hpcsubset.patternAbstract),...
-            'lightness', categorical(hpcsubset.control));
+    %% Cornerhist dimension complexity vs. regression -- PFC more complex but required fewer prediction dimensions
+    clf
+    figure(8)
+    hpcsubset = T.directionality == "pfc-hpc";
+    pfcsubset = T.directionality == "pfc-pfc";
+    hpcsubset = T(hpcsubset,:);
+    pfcsubset = T(pfcsubset,:);
+    % x = hpcsubset.qOpt./hpcsubset.rrDim;
+    x1 = pfcsubset.qOpt;
+    y1 = pfcsubset.rrDim;
+    x2 = hpcsubset.qOpt;
+    y2 = hpcsubset.rrDim;
+    subset = pfcsubset.generateH == "fromSpectral  fromRipTimes" & ~pfcsubset.singularWarning;
+    g1 = gramm(  'subset', subset,...
+                'x', x1,...
+                'y', y1,...
+                'color',     categorical(hpcsubset.patternAbstract),...
+                'lightness', categorical(hpcsubset.control));
 
 
-% assert(all(hpcsubset.patternType == pfcsubset.patternAbstract))
-g1.facet_grid(categorical(hpcsubset.control), categorical(hpcsubset.patternAbstract))
-g1.geom_point('dodge', 0.5, 'alpha', 0.3);
-g1.geom_abline('style','k:');
-g1.stat_cornerhist('edges',-4:0.5:4, 'aspect',1.2);
-g1.set_point_options('base_size', 10);
-g1.set_text_options('label_scaling', 1.5, 'base_size', 14);
-g1.set_names('x', 'PFC regional dimensions', ...
-    'y', 'PFC predictive dimensions', ...
-    'Color', 'Pattern', ...
-    'Lightness', 'Treatment/Control')
-g1.axe_property('XTickLabelRotation',35)
-g1.draw()
+    % assert(all(hpcsubset.patternType == pfcsubset.patternAbstract))
+    g1.facet_grid(categorical(hpcsubset.control), categorical(hpcsubset.patternAbstract))
+    g1.geom_point('dodge', 0.5, 'alpha', 0.3);
+    g1.geom_abline('style','k:');
+    g1.stat_cornerhist('edges',-4:0.5:4, 'aspect',1.2);
+    g1.set_point_options('base_size', 10);
+    g1.set_text_options('label_scaling', 1.5, 'base_size', 14);
+    g1.set_names('x', 'PFC regional dimensions', ...
+        'y', 'PFC predictive dimensions', ...
+        'Color', 'Pattern', ...
+        'Lightness', 'Treatment/Control')
+    g1.axe_property('XTickLabelRotation',35)
+    g1.draw()
 
-%%
-figure(233)
-g2 = gramm(  'subset', subset,...
-            'x', x2,...
-            'y', y2,...
-            'color', categorical(hpcsubset.patternAbstract),...
-            'lightness', categorical(hpcsubset.control));
-        
-g2.facet_grid(categorical(hpcsubset.control), categorical(hpcsubset.patternAbstract))
-g2.geom_point('dodge', 0.5, 'alpha', 0.3);
-g2.geom_abline('style','k:');
-g2.stat_cornerhist('edges',-4:0.5:4, 'aspect',1.2);
-g2.set_point_options('base_size', 10);
-g2.set_text_options('label_scaling', 1.5, 'base_size', 14);
+    %%
+    figure(233)
+    g2 = gramm(  'subset', subset,...
+                'x', x2,...
+                'y', y2,...
+                'color', categorical(hpcsubset.patternAbstract),...
+                'lightness', categorical(hpcsubset.control));
+            
+    g2.facet_grid(categorical(hpcsubset.control), categorical(hpcsubset.patternAbstract))
+    g2.geom_point('dodge', 0.5, 'alpha', 0.3);
+    g2.geom_abline('style','k:');
+    g2.stat_cornerhist('edges',-4:0.5:4, 'aspect',1.2);
+    g2.set_point_options('base_size', 10);
+    g2.set_text_options('label_scaling', 1.5, 'base_size', 14);
 
-g2.set_names('x', 'HPC regional dimensions', ...
-    'y', 'HPC predictive dimensions', ...
-    'Color', 'Pattern', ...
-    'Lightness', 'Treatment/Control')
-g2.axe_property('XTickLabelRotation',35)        
-g2.draw()
+    g2.set_names('x', 'HPC regional dimensions', ...
+        'y', 'HPC predictive dimensions', ...
+        'Color', 'Pattern', ...
+        'Lightness', 'Treatment/Control')
+    g2.axe_property('XTickLabelRotation',35)        
+    g2.draw()
 
 % ============================================================
 % DIMENSION BAR PLOTS

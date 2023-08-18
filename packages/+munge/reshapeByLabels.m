@@ -1,8 +1,7 @@
 function Dat = reshapeByLabels(Dat, dim, labels, varargin)
-% Supposed we have an a x b x c x d structure, and
-% on of those dimensions dim is labeled by labels.
-% This function reshapes the data to be
-% ... x (dim / nUniqueLabels) x ...
+% Supposed we have an a x b x c x d structure, and one of those dimensions dim
+% is labeled by labels. This function reshapes the data to be ... x (dim /
+% nUniqueLabels) x ...
 
 ip = inputParser;
 ip.addParameter('checksumSplitField', [], @ischar); % field to checksum, only valid for struct

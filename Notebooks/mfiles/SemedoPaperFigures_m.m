@@ -1,8 +1,9 @@
+PreambFigs;
+
 % TODO:
 % 1. Animal-wise version of this 
 % 2. Add sig to figs
-PreambFigs;
-dump = matfile(fullfile(codedefine,"figures","SPF"), "Writable", true);
+dump = matfile(fullfile(figuredefine("SPF")), "Writable", true);
 
 %%  
 % The different animals loaded will actually collapse into the partition
@@ -264,30 +265,34 @@ plots.subspace.pred_dim_rem.plotDimensionRemoval_perPatternbyDirection; % import
 %     end
 % end
 %%
-fig("Model performance versus factor analysis dimension")
-clf
-full_model_performance = [];
+try
+    fig("Model performance versus factor analysis dimension")
+    clf
+    full_model_performance = [];
 
-for i = 1:nPatterns
-    for j = 1:2
-        subplot(3,2,2*(i-1)+j)
-        
-        full_model = plots.plotPredictiveDimensions(numUsedForPrediction,curr_cvLoss(:,j,i),'optDim',curr_qOptDim, ...
-            "mode", "fa");
-        
-        full_model_performance = [full_model_performance, full_model];
-        xlim([0,12.5])
-        hold on
-        
-        plot(1, full_model,'^');
-        ylim([0, full_model+0.1])
-        if j == 1
-            ax1 = gca;
-        else
-            ax2 = gca;
+    for i = 1:nPatterns
+        for j = 1:2
+            subplot(3,2,2*(i-1)+j)
+            
+            full_model = plots.plotPredictiveDimensions(numUsedForPrediction,curr_cvLoss(:,j,i),'optDim',curr_qOptDim, ...
+                "mode", "fa");
+            
+            full_model_performance = [full_model_performance, full_model];
+            xlim([0,12.5])
+            hold on
+            
+            plot(1, full_model,'^');
+            ylim([0, full_model+0.1])
+            if j == 1
+                ax1 = gca;
+            else
+                ax2 = gca;
+            end
+            title([Patterns(p,j,i).name Patterns(p,j,i).directionality])
         end
-        title([Patterns(p,j,i).name Patterns(p,j,i).directionality])
+        linkaxes([ax1,ax2],'y')
+        
     end
-    linkaxes([ax1,ax2],'y')
-    
+catch
+    warning("Factor analysis not run")
 end

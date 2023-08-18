@@ -1,5 +1,5 @@
-function out = cvcca(sp1, sp2, kfold, lambda, maxNpc)
-% function out = cvcca(sp1, sp2, kfold, lambda, maxNpc)
+function out = cvcca(sp1, sp2, kfold, lambda, maxNpc, sp1_equals_sp2, Npartitions)
+    % function out = cvcca(sp1, sp2, kfold, lambda, maxNpc, sp1_equals_sp2, Npartitions)
 %
 % Inputs: 
 % - sp1, sp2: nBins x nNeurons arrays of spike counts
@@ -18,6 +18,81 @@ function out = cvcca(sp1, sp2, kfold, lambda, maxNpc)
 %   - V: nBins x maxNpc matrix of projections of sp2 onto canonical vectors
 %   - AA: cell array of A matrices for each fold
 %   - BB: cell array of B matrices for each fold
+
+if nargin < 7
+    Npartitions = 10; % Default value
+end
+
+if nargin < 6
+    sp1_equals_sp2 = false;
+end
+
+% Check for the sp1_equals_sp2 flag
+if sp1_equals_sp2
+    % Number of neurons
+    numNeurons = size(sp1, 2);
+    halfN = floor(numNeurons / 2);
+    
+    AA_accum = cell(Npartitions, 1);
+    BB_accum = cell(Npartitions, 1);
+    A_accum = zeros(numNeurons, maxNpc, Npartitions);
+    B_accum = zeros(numNeurons, maxNpc, Npartitions);
+    
+    for i = 1:Npartitions
+        % Split into partitions
+        idx = randperm(numNeurons);
+        new_sp1 = sp1(:, idx(1:halfN));
+        new_sp2 = sp1(:, idx(halfN+1:end));
+
+        % Recursive call
+        out1 = cvcca(new_sp1, new_sp2, kfold, lambda, maxNpc, false);
+        out2 = cvcca(new_sp2, new_sp1, kfold, lambda, maxNpc, false);
+
+        % Placeholder for original dimensions
+        A_temp = zeros(numNeurons, maxNpc);
+        B_temp = zeros(numNeurons, maxNpc);
+
+        % Place the smaller A and B vectors at the respective indices
+        A_temp(idx(1:halfN), :) = out1.A;
+        A_temp(idx(halfN+1:end), :) = out2.A;
+
+        B_temp(idx(1:halfN), :) = out1.B;
+        B_temp(idx(halfN+1:end), :) = out2.B;
+
+        A_accum(:,:,i) = A_temp;
+        B_accum(:,:,i) = B_temp;
+
+        % % For variable size of AA and BB
+        % nCrossVal = numel(out1.AA); % Assuming out1.AA and out2.AA are of the same length
+        % for j = 1:nCrossVal
+        %     if i == 1
+        %         AA_accum{j} = (out1.AA{j} + out2.AA{j})/2;
+        %         BB_accum{j} = (out1.BB{j} + out2.BB{j})/2;
+        %     else
+        %         AA_accum{j} = AA_accum{j} + (out1.AA{j} + out2.AA{j})/2;
+        %         BB_accum{j} = BB_accum{j} + (out1.BB{j} + out2.BB{j})/2;
+        %     end
+        % end
+    end
+
+    % % Average over all partitions
+    % for j = 1:nCrossVal
+    %     AA_accum{j} = AA_accum{j} / Npartitions;
+    %     BB_accum{j} = BB_accum{j} / Npartitions;
+    % end
+    % out.AA = AA_accum;
+    % out.BB = BB_accum;
+    out.A = mean(A_accum, 3);
+    out.B = mean(B_accum, 3);
+
+    % Compute U and V for intra-brain interaction
+    out.U = sp1 * out.A;
+    out.V = sp1 * out.B;
+
+    % Continue with the rest of your code or return if the sp1_equals_sp2 flag covers all functionality desired...
+    return;
+end
+
     
 
 doPCA = true; % if false, just use what you're given

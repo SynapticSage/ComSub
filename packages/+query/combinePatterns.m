@@ -46,9 +46,7 @@ for key = progress(keys','Title','Loading keys')
 
     if ~isempty(Opt.RunsSummary)
         tbl = Opt.RunsSummary(Opt.RunsSummary.hash == replace(key,".mat",""),:);
-        disp("Loading " + key + " from " + tbl.animal + ...
-            " with hash " + tbl.hash + " and " + tbl.generateH + " patterns" ...
-            + " <- " + tbl.timestamp);
+        disp("Loading " + key + " from " + tbl.animal + " with hash " + tbl.hash + " and " + tbl.generateH + " patterns" + " <- " + string(tbl.timestamp));
     end
     if ~exist(key,'file')
         warning('File not found: %s', key);
@@ -83,6 +81,11 @@ for key = progress(keys','Title','Loading keys')
 
 end
 %keyboard
+
+assignin('base','varargout',varargout);
+assignin('base','Opt',Opt);
+assignin('base','fields',fields);
+assignin('base','kCount',kCount);
 
 % Prep output
 fcnt = 0;

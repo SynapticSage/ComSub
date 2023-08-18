@@ -1,6 +1,6 @@
 % SEE toplevel script plots.event.plot2016
 
-f = fig(animal + " 2016 Figure epoch " + epoch_option + " " + sortprop + " trajbound " + trajbound_option);
+f = fig(animal + " 2016 Figure epoch " + string(epoch_option) + " " + sortprop + " trajbound " + trajbound_option);
 figdict = containers.Map();
 figdict("figure") = f;
 clf;
