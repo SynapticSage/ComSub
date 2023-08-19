@@ -85,7 +85,7 @@ plots.cf.plotCofiring(Fig2.a.coh, Option, 'Normalization', 'cdf', 'figAppend', '
 plots.cf.plotCofiring(Fig2.a.wpli,Option, 'Normalization', 'cdf', 'figAppend', 'wp');
 
 %%
-close all
+% close all
 
 %% 
 % Example 
@@ -122,7 +122,7 @@ Fig2.b = plots.pred.var.plotexplained(Fig2.b, Option, ...
 Fig2.datetime = datetime('now');
 disp("Time to plot: " + toc)
 %% 
-close all
+% close all
 
 % Fieldss created:
 % ----------------

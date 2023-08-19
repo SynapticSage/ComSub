@@ -372,8 +372,8 @@ for metric = metrics
     saveas(gcf, fullfile(savefolder, savetitle + ".fig"));
     saveas(gcf, fullfile(savefolder, savetitle + ".pdf"));
 
-    plot_statistic_summary(selected, @nanmean);
-
+    plots.raw.plot_statistic_summary(selected, efizz, metric, @nanmean);
+    
 end
 close all;
 % catch

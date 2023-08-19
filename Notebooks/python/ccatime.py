@@ -55,6 +55,7 @@ def get_cont_vars(df):
 # Load the data
 print("Loading data...")
 df = pd.read_parquet(os.path.join(folder, f'{name}.parquet'))
+df = df[df.nameFull.isnull()]
 print("Data loaded.")
 cont_vars = get_cont_vars(df)
 dfc = df[["animal", *cont_vars]]
@@ -68,7 +69,7 @@ print("Z-scoring...")
 dfc.loc[:,cont_vars] = dfc.loc[:,cont_vars].apply(lambda x: (x - x.mean()) / x.std())
 print("Z-scoring done.")
 # Define the lag
-maxlag = 10
+maxlag = 20
 animals = df['animal'].unique()
 chunk_size = 260_000 // cpu_count()
 i_list_startswith = ["U","V","S","Cavg","wpli_avg"]

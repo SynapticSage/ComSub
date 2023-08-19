@@ -19,6 +19,7 @@ Option.tableAppend     = "_spectra";
 Option.analysis.cca    = true;
 Option.midpattern      = true;
 Option.analysis.checks = false;
+Option.saveRaw         = true;
 X = datetime('now') - hours(18);
 tableCheck = true; % Set to true if you want to check RunsSummary table
 
@@ -59,10 +60,6 @@ if dopar
 end
 
 %% Run
-dates = NaT(numel(RunsSummary.timestamp),1);
-for i = 1:numel(RunsSummary.timestamp)
-    dates(i) = datetime(RunsSummary.timestamp(i));
-end
 [cntAn, cntH, cntZ]         = deal(0);
 for zsc = progress(zvals,'Title','zscore');  cntZ = cntZ + 1;
 for genH_= progress(h_methods,'Title','genH method'); cntH = cntH + 1;
@@ -72,13 +69,24 @@ for iAnimal = progress(1:numel(animal_list),'Title','Animal'); cntAn = cntAn + 1
         Option.generateH = genH_;
         if tableCheck
             % Check if the combination of animal and generateH exists in RunsSummary and its timestamp is not older than X
-            mask = RunsSummary.animal == Option.animal & ... 
-                   RunsSummary.generateH == Option.generateH & ...
-                   RunsSummary.preProcess_zscore == Option.preProcess_zscore & ...
+            dates = NaT(numel(RunsSummary.timestamp),1);
+            for i = 1:numel(RunsSummary.timestamp)
+                dates(i) = datetime(RunsSummary.timestamp(i));
+            end
+            mask = RunsSummary.animal  == Option.animal & ... 
+                   RunsSummary.generateH  == Option.generateH & ...
+                   RunsSummary.midpattern  == Option.midpattern & ...
+                   RunsSummary.preProcess_zscore  == Option.preProcess_zscore & ...
                    dates > X;
-            if any(mask)
+            hashfound = store.gethash(Option) ==RunsSummary.hash;
+            if any(mask) || any(hashfound)
+                disp("")
                 disp("Skipping as entry found in RunsSummary with recent timestamp");
+                pause(0.25)
                 continue
+            else
+                pause(0.25)
+                disp("No entry found in RunsSummary with recent timestamp... running...");
             end
         end
         disp(newline + "-------------------------------");

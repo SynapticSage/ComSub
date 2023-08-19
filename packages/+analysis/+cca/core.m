@@ -16,10 +16,12 @@ function [results] = core(x_area1, x_area2, varargin)
 %       cross_area_corr: correlation between the top canonical scores
 %
 
-% ip = inputParser;
+ip = inputParser;
 % ip.addParameter('ploton', false, @islogical);
-% ip.parse(varargin{:});
-% opt = ip.Results;
+ip.addParameter('area1_eq_area2', false, @islogical);
+ip.parse(varargin{:});
+opt = ip.Results;
+
 d=@double;
 usecv = true;
 
@@ -28,7 +30,8 @@ if ~usecv
     [a, b, r, u, v, stats] = canoncorr(d(x_area1)', d(x_area2)');
     R = nan;
 else
-    out = analysis.cca.cvcca(d(x_area1)', d(x_area2)');
+    disp("running cvcca with area1_eq_area2 = " + string(opt.area1_eq_area2));
+    out = analysis.cca.cvcca(d(x_area1)', d(x_area2)', 5, [], 20, opt.area1_eq_area2);
     u = out.U;
     v = out.V;
     a = out.A;
@@ -38,10 +41,11 @@ else
     r = diag(R);
     nd = size(u, 2);
     [ao, bo, ~, uo, vo] = canoncorr(d(x_area1)', d(x_area2)');
-    ao = ao(:,1:nd);
-    bo = bo(:,1:nd);
-    uo = uo(:,1:nd);
-    vo = vo(:,1:nd);
+    ndd = min(nd, size(ao, 2));
+    ao = ao(:,1:ndd);
+    bo = bo(:,1:ndd);
+    uo = uo(:,1:ndd);
+    vo = vo(:,1:ndd);
 end
 
 % correlation between the first scores

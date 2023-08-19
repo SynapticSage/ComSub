@@ -91,7 +91,7 @@ elif os.path.splitext(datafile)[1] == '.parquet':
 else:
     raise ValueError(f'Unknown file extension: {os.path.splitext(datafile)[1]}')
 print("Done.")
-def label_epochs(df, time_col='time', time_threshold=4):
+def label_epochs(df, time_col='time', time_threshold=15*60):
     # Calculate time difference
     df.loc[:,'time_diff'] = df[time_col].diff()
     # Initialize the epoch column with 0
@@ -107,6 +107,7 @@ def label_epochs(df, time_col='time', time_threshold=4):
 df = df.sort_values(['time','animal']).groupby('animal').apply(label_epochs).reset_index()
 if not name.endswith("_epoch"):
     name = name + "_epoch"
+df.groupby(['animal','epoch']).time.mean().unstack()
 
 for uv in ["U1", "U2", "U3", "V1", "V2", "V3"]:
     df[f"{uv}a"] = np.abs(df[f"{uv}"])
@@ -120,7 +121,9 @@ columns_to_bootstrap = ["U1", "U2", "U3", "V1", "V2", "V3",
                         "Cavgtheta", 
                         "Cavgdelta", "Cavgripple", "S1theta", "S1delta", 
                         "S2theta", "wpli_avgtheta", "S1ripple", "S2ripple",
-                        "S2delta", "wpli_avgripple", "wpli_avgdelta"]
+                        "S2delta", "wpli_avgripple", "wpli_avgdelta", "mua",
+                        "vel", "accel"]
+
 
 # Reinitialize the DataFrame to hold the results
 bootstrap_means_combined = []
@@ -148,6 +151,7 @@ for trajbound in tqdm([0, 1], desc="trajbound", total=2):
         min_points_per_animal = data.groupby("animal").size().min()
         
         # Generate bootstrap samples
+        bms = []
         for iboot in range(n_bootstrap_samples):
             # Initialize an empty list to hold the data for this bootstrap sample
             bootstrap_sample = []
@@ -160,7 +164,7 @@ for trajbound in tqdm([0, 1], desc="trajbound", total=2):
                 bootstrap_mean = sample.mean(numeric_only=True).astype(float)
                 
                 # Add the result to the DataFrame
-                bootstrap_means_combined.append({
+                bms.append({
                     "iboot": iboot,
                     "lindist_bin": bin_label,
                     "column": column,
@@ -169,7 +173,8 @@ for trajbound in tqdm([0, 1], desc="trajbound", total=2):
                     "animal": animal,
                     "epoch": epoch
                 })
-
+        bms = pd.DataFrame(bms)
+        bootstrap_means_combined.append(bms)
 
 # Convert the list of dictionaries to a DataFrame
 print("Converting to DataFrame...")

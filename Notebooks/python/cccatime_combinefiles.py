@@ -20,7 +20,7 @@ dfs = {}
 # Loop over the files and read them into pandas dataframes
 for file in tqdm(files, desc="Reading files", total=len(files)):
     # The key will be the rat's name, extracted from the filename
-    key = os.path.splitext(file)[0].replace("powerccatime", "")
+    key = os.path.splitext(file)[0].replace("powerccatime", "").replace("coherenceccatime", "")
     key = os.path.basename(key)
     # Read the file into a dataframe and store it in the dictionary
     dfs[key] = pd.read_csv(file)

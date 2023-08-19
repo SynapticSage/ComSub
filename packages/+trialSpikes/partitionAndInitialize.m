@@ -172,6 +172,11 @@ for j = 1:numel(split_info.directionality)
         source = "hpc";
         target = "pfc";
     end
+    if j == const.HPC
+        Patterns_overall(j, last).directionality = "hpc-hpc";
+    else
+        Patterns_overall(j, last).directionality = "hpc-pfc";
+    end
     % Assign x_source and x_target
     Patterns_overall(j, last).X_source = s_all;
     Patterns_overall(j, last).X_target = t_all;
@@ -179,7 +184,6 @@ for j = 1:numel(split_info.directionality)
     Patterns_overall(j, last).index_source = s_inds;
     Patterns_overall(j, last).index_target = t_inds;
     % Assign directionality
-    Patterns_overall(j, last).directionality = directionality;
     % Assign pattern name
     Patterns_overall(j, last).name = "Overall";
     time = Spk.timeBinMidPoints(sessionTypePerBin == 1);

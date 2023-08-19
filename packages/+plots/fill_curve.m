@@ -4,8 +4,14 @@ function fill_curve(X, Y, varargin)
     if iscolumn(X)
         X = X';
     end
-    if iscolumn(Y)
+    if iscolumn(Y) && isvector(Y)
         Y = Y';
+    elseif ismatrix(Y) && size(Y,1) > size(Y,2)
+        Y = Y'; 
+        [Y, lower] = deal(Y(1,:), Y(2,:));
+    else
+        Y = Y(1,:);
+        lower = zeros(1, length(Y));
     end
 
     % if nargin < 3
@@ -14,7 +20,7 @@ function fill_curve(X, Y, varargin)
 
     % Create patch vertices
     x_patch = [X, fliplr(X)]; % X values for patch (tracing the curve forward then backward)
-    y_patch = [Y, zeros(1, length(Y))]; % Y values for patch (curve values, then back down to y=0)
+    y_patch = [Y, lower]; % Y values for patch (curve values, then back down to y=0)
 
     % Create the filled patch
     patch(x_patch, y_patch, varargin{:});
