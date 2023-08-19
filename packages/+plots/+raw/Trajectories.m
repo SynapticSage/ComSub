@@ -104,10 +104,10 @@ for set_to_plot = sets_wanna_plot(:)' %FOR_SET_TO_PLOT
         xlim(xlims);
         grid on;
     end
-    sgtitle("Behavior Trajectories " +  animal + epoch_option + " trajbound=" + trajbound_option + newline + " dataname: " + data_name + ", col: " + data_col);
+    sgtitle("Trajectories " +  animal + epoch_option + " trajbound=" + trajbound_option + newline + " dataname: " + data_name + ", col: " + data_col);
     sgt = gcf;
     set(gcf, 'Position', get(0, 'Screensize'));  % Maximize the figure window
-    r = @(x) string(replace(replace(replace(x, " ", "_"), ":", "_"),newline,"_"));
+    r = @(x) "traj_" + string(replace(replace(replace(x, " ", "_"), ":", "_"),newline,"_"));
     saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.png'));
     saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.pdf'));
     saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.fig'));

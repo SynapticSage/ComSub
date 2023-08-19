@@ -154,7 +154,7 @@ last = Option.nPatternAndControl + 1;
 areaPerNeuron     = Spk.areaPerNeuron;
 sessionTypePerBin = Spk.sessionTypePerBin;
 for j = 1:numel(split_info.directionality)
-    if i == const.HPC
+    if j  == const.HPC
         s_all = Spk.spikeRateMatrix(areaPerNeuron == "CA1", ... 
             sessionTypePerBin == 1);
         t_all = s_all;

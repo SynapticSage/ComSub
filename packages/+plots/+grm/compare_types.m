@@ -26,6 +26,7 @@ function compare_types(T, genH_name1, genH_name2, directionality, varargin)
     coherencesubset = T(subset2, :);
     assert(~isempty(filteredsubset))
     assert(~isempty(coherencesubset))
+    assert(height(filteredsubset) == height(coherencesubset))
 
     % Create gramm plots
     for i = 1:length(investigate)

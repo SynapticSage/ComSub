@@ -32,8 +32,8 @@ lfp_fields = ["theta", "ripple", "data"];
 use_fft_avg = true; % otherwise use lfp
 % For behavior based plotting
 sets_wanna_plot = {...
-["u",1,"X_time"], ["v",1,"X_time"], ["u",2,"X_time"], ["v",2,"X_time"], ["u",3,"X_time"], ["v",3,"X_time"]};
-...["theta_hpc",1,"t"], ["theta_pfc",1,"t"], ["ripple_hpc",1,"t"],["ripple_pfc",1,"t"],...
+["u",1,"X_time"], ["v",1,"X_time"], ["u",2,"X_time"], ["v",2,"X_time"], ["u",3,"X_time"], ["v",3,"X_time"],...
+["us", 1, "X_time"], ["vs", 1, "X_time"], ["us", 2, "X_time"], ["vs", 2, "X_time"], ["us", 3, "X_time"], ["vs", 3, "X_time"]};
 sets_wanna_plot_efizz = {["theta_wpli",1,"t"], ...
  ["ripple_wpli",1,"t"],...
 ["delta_wpli",1,"t"],...
@@ -44,7 +44,7 @@ sets_wanna_plot_efizz = {["theta_wpli",1,"t"], ...
 const = option.constants();
 all_animals = const.all_animals;
 all_animals = ["ZT2" setdiff(all_animals, "ZT2")];
-all_animals = setdiff(all_animals, ["ZT2", "ER1"]);
+% all_animals = setdiff(all_animals, ["ZT2", "ER1"]);
 compcolors = [
     0,   128, 128; ...  % Strong Teal
     255, 165, 0;   ...  % Strong Orange
@@ -88,6 +88,7 @@ if ~exist("efizz", "var") && ~exist('Option') || animal ~= Option.animal
     Patterns_overall = analysis.cca(Patterns_overall, Option);
 end
 pattern_overall_ind = numel(Patterns_overall);
+pattern_overall_same_ind = {1, size(Patterns_overall,2)};
 savefolder_opt = "_showwin=" + num2str(shadeOption) + "_colorbycomp=" + num2str(colorbycomp) + "_dim3=" + num2str(dim3) + "_sortprop=" + sortprop + "_sortdir=" + sortdir + "_use_fft_avg=" + use_fft_avg;
 if Option.midpattern
     savefolder = figuredefine("mipattern=true","2016figure", savefolder_opt);
@@ -119,7 +120,7 @@ ripple_idx = find(efizz.f >= ripple_band(1) & efizz.f <= ripple_band(2));
 
 % Compute average power in the theta and ripple bands for both regions
 avg.theta_hpc   = mean(efizz.S1(:, theta_idx), 2);
-avg.ripple_hpc  = mean(efizz.S1(:, ripple_idx), 2)
+avg.ripple_hpc  = mean(efizz.S1(:, ripple_idx), 2);
 avg.theta_pfc   = mean(efizz.S2(:, theta_idx), 2);
 avg.ripple_pfc  = mean(efizz.S2(:, ripple_idx), 2);
 avg.theta_cavg  = mean(efizz.Cavg(:, theta_idx), 2);
@@ -138,7 +139,7 @@ cells.pfc = Spk.areaPerNeuron  == "PFC";
 
 % Filter the behavior table based on the provided options
 selected_rows = behavior;
-if ~isempty(epoch_option)
+if ~isempty(epoch_option) && isnumeric(epoch_option)
     selected_rows = selected_rows(selected_rows.epoch == epoch_option, :);
 else
     epoch_option = "all";
@@ -279,6 +280,11 @@ selected.pattern.u = Patterns_overall(pattern_overall_ind).cca.u(ind.pattern,:);
 selected.pattern.v = Patterns_overall(pattern_overall_ind).cca.v(ind.pattern,:);
 selected.pattern.a = Patterns_overall(pattern_overall_ind).cca.a;
 selected.pattern.b = Patterns_overall(pattern_overall_ind).cca.b;
+selected.pattern.us = Patterns_overall(pattern_overall_same_ind{:}).cca.u(ind.pattern,:);
+selected.pattern.vs = Patterns_overall(pattern_overall_same_ind{:}).cca.v(ind.pattern,:);
+selected.pattern.as = Patterns_overall(pattern_overall_same_ind{:}).cca.a;
+selected.pattern.bs = Patterns_overall(pattern_overall_same_ind{:}).cca.b;
+
 disp("Patterns_overall" + newline + strjoin(repmat("-", 1, 25)))
 disp(selected.pattern)
 selected.behavior_time = munge.removeDataGaps(selected_rows.time, ranges, time_gaps, 'gap_thresh', gap_thresh);
@@ -329,6 +335,7 @@ for f = fieldnames(selected.efizz)'
     end
 end
 
+% try
 %% PLOT: ALL efizz and spiking with behavior
 plots.raw.AllEfizz
 close all
@@ -339,14 +346,14 @@ close all
 
 options = {'grid_res', 35, 'sgtitlePrepend', prefix};
 prefix = animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option;
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps");
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_splitbyreward");
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_rollingstd");
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_rollingstd_splitbyreward");
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_efizz");
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_splitbyreward_efizz");
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_rollingstd_efizz");
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', prefix + "_averagemaps_rollingstd_splitbyreward_efizz");
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'saveloc', savefolder, 'savetitle', "averagemaps_" + prefix);
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', "averagemaps_splitbyreward_" + prefix );
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'saveloc', savefolder, 'savetitle', "averagemaps_rollingstd_" + prefix );
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', "averagemaps_rollingstd_splitbyreward_" +prefix);
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'saveloc', savefolder, 'savetitle', "averagemaps_efizz_" + prefix);
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', "averagemaps_splitbyreward_efizz_" + prefix);
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'saveloc', savefolder, 'savetitle', "averagemaps_rollingstd_efizz" + prefix);
+plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', "averagemaps_rollingstd_splitbyreward_efizz_" + prefix);
 close all;
 
 %% Correlation plots
@@ -360,12 +367,17 @@ for metric = metrics
     plots.raw.corr(selected, efizz, metric);
     title("Correlation Coefficient Matrix" + newline + fig_title);
 
-    savetitle = prefix + "_corr_" + metric;
+    savetitle = "corr_" + metric + "_" + prefix;
     saveas(gcf, fullfile(savefolder, savetitle + ".png"));
     saveas(gcf, fullfile(savefolder, savetitle + ".fig"));
     saveas(gcf, fullfile(savefolder, savetitle + ".pdf"));
+
+    plot_statistic_summary(selected, @nanmean);
+
 end
 close all;
+% catch
+% end
 
 
 

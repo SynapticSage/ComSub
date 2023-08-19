@@ -6,8 +6,8 @@ figdict("figure") = f;
 clf;
 
 % Define the relative heights
-rel_heights = [2, 1, 0.5, 0.5, 0.5, 0.5];
-names = ["HPC", "PFC", "Theta", "Ripple","U", "V"];
+rel_heights = [2, 1, 0.5, 0.5, 0.5, 0.5, 0.5];
+names = ["HPC", "PFC", "Theta", "Ripple", "U", "V", "US"];
 normalized_heights = rel_heights / sum(rel_heights);
 cumulative_heights = [0, cumsum(normalized_heights)];
 % Define user-defined offsets (if needed)
@@ -223,6 +223,32 @@ for i = 1:length(rel_heights)
             ylabel('V Component');
             title('V Component of hpc-pfc communication');
 
+        case 'US'
+            % Shading for V Component 1
+            plot(selected.pattern.X_time, selected.pattern.us(:,1), 'DisplayName', 'H-H 1');
+            hold on;
+            plots.fill_curve(selected.pattern.X_time, selected.pattern.us(:,1), 'b');
+            alpha(0.5);
+            if dim3
+                % Shading for V Component 3
+                plot(selected.pattern.X_time, selected.pattern.us(:,dim3), 'DisplayName', 'H-H  3', 'Color', [1 0 0 0.2], 'LineWidth', 0.5);
+                plots.fill_curve(selected.pattern.X_time, selected.pattern.v(:,3), 'r');
+                alpha(0.1);
+            end
+            sumabs = true;
+            if sumabs
+                % add in light dotted black the sum of hte absolute values of the top 3 components
+                plot(selected.pattern.X_time, sum(abs(selected.pattern.us(:,1:3)),2), 'DisplayName', 'PFC V, 1-3', 'Color', [0 0 0 0.2], 'LineWidth', 2, 'LineStyle', ':');
+            end
+            % Shading for V Component 2
+            yline(0, 'Color', 'k', 'LineWidth', 1.5, 'LineStyle', ':');
+            plot(selected.pattern.X_time, selected.pattern.us(:,2), 'DisplayName', 'PFC V, 2', 'Color', [0 1 0 0.35], 'LineWidth', 0.5);
+            plots.fill_curve(selected.pattern.X_time, selected.pattern.v(:,2), 'g');
+            clear alpha
+            alpha(0.3);
+            ylabel('V Component');
+            title('V Component of hpc-pfc communication');
+
         case 'Raw'
 
             plot(lfp.hpc.time, lfp.hpc.data(:,1));
@@ -308,7 +334,7 @@ end
 sgt = gcf;
 set(gcf, 'Position', get(0, 'Screensize'));  % Maximize the figure window
 % plots.positionFigOnRightMonitor(gcf)
-r = @(x) string(replace(replace(replace(x, " ", "_"), ":", "_"), newline, "_"));
+r = @(x) "raw_" + string(replace(replace(replace(x, " ", "_"), ":", "_"), newline, "_"));
 saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.png'));
 saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.pdf'));
 saveas(gcf, fullfile(savefolder, r(sgt.Name) + '.fig'));

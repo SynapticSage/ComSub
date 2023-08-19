@@ -73,15 +73,19 @@ function [combinedPatternsTable, singlePredTable] = allAnimPred(Patterns, Option
     for i = 1:numel(singlePredTable)
         singlePredTable{i} = vertcat(singlePredTable{i}{:});
     end
-    singlePredTable       = vertcat(singlePredTable{:});
-    % Just to not break legacy downstream code
     combinedPatternsTable.Var8 = combinedPatternsTable.perf;
     combinedPatternsTable.Var7 = combinedPatternsTable.iTarget;
-    singlePredTable.Var9 = singlePredTable.perf;
-    singlePredTable.Var8 = singlePredTable.iTarget;
+    singlePredTable       = vertcat(singlePredTable{:});
+    if ~isempty(singlePredTable)
+        % Just to not break legacy downstream code
+        singlePredTable.Var9 = singlePredTable.perf;
+        singlePredTable.Var8 = singlePredTable.iTarget;
+    end
     if ~exist(figuredefine("tables"), 'dir'), mkdir(figuredefine("tables")); end
     assert(~isempty(combinedPatternsTable), 'No data to save');
     writetable(combinedPatternsTable, fullfile(figuredefine("tables"), 'fig2_prediction.csv'));
-    writetable(singlePredTable, fullfile(figuredefine("tables"), 'fig2_singlePrediction.csv'));
+    if ~isempty(singlePredTable)
+        writetable(singlePredTable, fullfile(figuredefine("tables"), 'fig2_singlePrediction.csv'));
+    end
     combinedPatternsTable = readtable(fullfile(figuredefine("tables"), 'fig2_prediction.csv'));
     singlePredTable = readtable(fullfile(figuredefine("tables"), 'fig2_singlePrediction.csv'));
