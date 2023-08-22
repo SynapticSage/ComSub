@@ -163,45 +163,43 @@ if Option.analysis.cca % 🔀
     % Event analysis ------------------------------------------------------
     % (append cca commsub levels during events)
     % 藺
-    event_anal  = ... 
-         analysis.cca.event_analysis(Patterns_overall, Spk, Events, Option, behavior);
-    for i = 1:Option.nPatternAndControl+1
-        plots.plot_event_values(event_anal(2,i), 'figAppend', figAppend + "_" + i);
-    end
-    Components_overall = ... 
-         nd.fieldSet(Components_overall, 'event_anal', event_anal);
+    % event_anal  = ... 
+    %      analysis.cca.event_analysis(Patterns_overall, Spk, Events, Option, behavior);
+    % for i = 1:Option.nPatternAndControl+1
+    %     plots.plot_event_values(event_anal(2,i), 'figAppend', figAppend + "_" + i);
+    % end
+    % Components_overall = ... 
+    %      nd.fieldSet(Components_overall, 'event_anal', event_anal);
     % ---------------------------------------------------------------------
     % Create table of results ---------------------------------------------
     % (create a table regarding cca versus efizz and behavior)
     % 藺 ccatime
-    efizz = load(Option.animal + "spectralBehavior.mat", "efizz");
-    efizz = efizz.efizz;
-    table.analyses.ccatime(Patterns_overall, Spk, efizz, Option, behavior,...
-                          'behaviorColumns', ...
-    {'vel', 'accel', 'lindist', 'rewarded', ...
-    'trajbound','inBoundChoiceTimes','outBoundChoiceTimes','rewardTimes'});
+    % efizz = load(Option.animal + "spectralBehavior.mat", "efizz");
+    % efizz = efizz.efizz;
+    % table.analyses.ccatime(Patterns_overall, Spk, efizz, Option, behavior,...
+    %                       'behaviorColumns', ...
+    % {'vel', 'accel', 'lindist', 'rewarded', ...
+    % 'trajbound','inBoundChoiceTimes','outBoundChoiceTimes','rewardTimes'});
     % ---------------------------------------------------------------------
     % Triggered spectrogram u ---------------------------------------------
     % (create compute triggered spectrograms for commsubs)
-    disp("Running triggered spectrogram - run")
-    close all
-    % 藺 triggered win
-    based_on = ["mean_and_std", "mean_u_above", "mean_u_below", "mean_v_above", "mean_v_below"];
-    for i = 1:length(based_on)
-        structAppend.based_on = based_on(i);
-        triggered_spectrogram_run = ...
-        analysis.cca.triggered_spectrogram(Patterns_overall, Spk, efizz,...
-        'ploton', true, ... 
-        'quantile_threshold', 0.85,...
-        'figAppend', structAppend, ...
-        'based_on', based_on(i), ...
-        'runtype', 1);
-    end
-    if ~exist(figuredefine("data"), 'dir'); mkdir(figuredefine("data")); end
-    save(figuredefine("data", "trigspec_" + figAppend), "Option", "triggered_spectrogram_run");
-    dcnt=0;
+    % disp("Running triggered spectrogram - run")
+    % close all
+    % % 藺 triggered win
+    % based_on = ["mean_and_std", "mean_u_above", "mean_u_below", "mean_v_above", "mean_v_below"];
+    % for i = 1:length(based_on)
+    %     structAppend.based_on = based_on(i);
+    %     analysis.cca.triggered_spectrogram(Patterns_overall, Spk, efizz,...
+    %     'ploton', true, ... 
+    %     'quantile_threshold', 0.85,...
+    %     'figAppend', structAppend, ...
+    %     'based_on', based_on(i), ...
+    %     'runtype', 1);
+    % end
+    % if ~exist(figuredefine("data"), 'dir'); mkdir(figuredefine("data")); end
+    % save(figuredefine("data", "trigspec_" + figAppend), "Option", "triggered_spectrogram_run");
     % 藺 regress
-    tic;
+    tic; dcnt=0;
     for d = progress([inf], 'Title', 'Regress-faxis'); dcnt=dcnt+1;
         for i = progress(1:size(Patterns_overall,2), 'Title', 'Regress')
             for f = progress(["phi","S1","S2","Cavg","wpli_avg"],'Title', 'Regress-field')
@@ -210,6 +208,11 @@ if Option.analysis.cca % 🔀
                 'faxis', d, "tabPrepend", figAppend, 'ploton', true);
             end
             close all
+        end
+        for f = progress(["phi","S1","S2","Cavg","wpli_avg"],'Title', 'Regress-field private')
+            Patterns_overall(1,end).regress(dcnt).(f) = ... 
+            analysis.cca.regressefizz(efizz, Patterns_overall(1,end), f,...
+            'faxis', d, "tabPrepend", figAppend+"_private", 'ploton', true);
         end
     end
     close all
@@ -263,10 +266,10 @@ if Option.save % 💾
         saveVars.Patterns = Patterns;
         saveVars.Patterns_overall = Patterns_overall;
     end
-    if exist('Components', 'var')
-        saveVars.Components         = Components;
-        saveVars.Components_overall = Components_overall;
-    end
+    % if exist('Components', 'var')
+    %     saveVars.Components         = Components;
+    %     saveVars.Components_overall = Components_overall;
+    % end
     store.savevars(Option, Events, Spk, saveVars);
     disp("...done")
     !pushover-cli "finished saving"

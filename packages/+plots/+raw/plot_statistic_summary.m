@@ -3,6 +3,7 @@ function plot_statistic_correlation(selected, efizz, field, statistic, varargin)
     ip = inputParser;
     ip.addParameter('saveloc', '', @ischar);
     ip.addParameter('savetitle', '', @ischar);
+    ip.addParameter('iboot', 0, @isnumeric);
     ip.parse(varargin{:});
     p = ip.Results;
 
@@ -23,25 +24,26 @@ function plot_statistic_correlation(selected, efizz, field, statistic, varargin)
     colors = [[0.7 0.7 1]; [0.4 0.4 1]; [0.9 0.5 0.5]; [1 0.2 0.2]];
 
     % Bootstrapping
-    nBoot = 1000; % Number of bootstrap samples
+    nBoot = p.iboot; % Number of bootstrap samples
     alpha = 0.05; % For 95% CI
     correlation_matrix(pval < alpha) = NaN;
     % Bootstrapping the entire correlation matrix
-    nBoot = 500; % Number of bootstrap samples
-    boot_corr_matrices = zeros(size(correlation_matrix, 1), size(correlation_matrix, 2), nBoot);
 
-    for b = 1:nBoot
-        % Resample indices with replacement
-        resample_idx = randi(length(interp_data), length(interp_data), 1);
+    if nBoot > 0
+        boot_corr_matrices = zeros(size(correlation_matrix, 1), size(correlation_matrix, 2), nBoot);
+        for b = 1:nBoot
+            % Resample indices with replacement
+            resample_idx = randi(length(interp_data), length(interp_data), 1);
 
-        % Resample data
-        boot_interp_data = interp_data(resample_idx,:);
-        boot_concat_matrix = concatenated_matrix(resample_idx, :);
+            % Resample data
+            boot_interp_data = interp_data(resample_idx,:);
+            boot_concat_matrix = concatenated_matrix(resample_idx, :);
 
-        % Calculate correlation for the bootstrapped sample
-        [c,p] = corr(boot_interp_data, boot_concat_matrix, 'Rows', 'complete');
-        c(p < alpha) = nan;
-        boot_corr_matrices(:,:,b) = c;
+            % Calculate correlation for the bootstrapped sample
+            [c,p] = corr(boot_interp_data, boot_concat_matrix, 'Rows', 'complete');
+            c(p < alpha) = nan;
+            boot_corr_matrices(:,:,b) = c;
+        end
     end
 
 
@@ -49,16 +51,20 @@ function plot_statistic_correlation(selected, efizz, field, statistic, varargin)
 
     for i = 1:4
         % Extract data for the current pattern
-        boot_data = squeeze(boot_corr_matrices(:, pattern_indices(i, 1):pattern_indices(i, 2), :));
-        boot_means = feval(statistic, boot_data, 2);
-        ci = prctile(boot_means, [100*alpha/2, 100*(1-alpha/2)], 2);
+        if nBoot > 0
+            boot_data = squeeze(boot_corr_matrices(:, pattern_indices(i, 1):pattern_indices(i, 2), :));
+            boot_means = squeeze(feval(statistic, boot_data, 2));
+            ci = prctile(boot_means, [100*alpha/2, 100*(1-alpha/2)], 2);
+            ci = ci';
+        end
 
         f = efizz.f;
-        keyboard
-        y = mean(boot_means, 2);
+        y = statistic(correlation_matrix(:, pattern_indices(i, 1):pattern_indices(i, 2)), 2);
         plot(f, y, 'Color', colors(i, :), 'LineWidth', 2);
-        plots.fill_curve(f, [ci(:,1), y], colors(i, :), 'FaceAlpha', 0.3, 'EdgeColor', 'none');
-        plots.fill_curve(f, [y, ci(:,2)], colors(i, :), 'FaceAlpha', 0.3, 'EdgeColor', 'none');
+        if nBoot > 0
+            plots.fill_curve(f, [ci(1,:); y(:)'], colors(i, :), 'FaceAlpha', 0.3, 'EdgeColor', 'none');
+            plots.fill_curve(f, [y(:)'; ci(2,:)], colors(i, :), 'FaceAlpha', 0.3, 'EdgeColor', 'none');
+        end
     end
     
     % Draw dashed line for zero-mean correlation

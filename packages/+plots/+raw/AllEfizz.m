@@ -6,8 +6,8 @@ figdict("figure") = f;
 clf;
 
 % Define the relative heights
-rel_heights = [2, 1, 0.5, 0.5, 0.5, 0.5, 0.5];
-names = ["HPC", "PFC", "Theta", "Ripple", "U", "V", "US"];
+rel_heights = [2, 1, 0.4, 0.4, 0.5, 0.5];
+names = ["HPC", "PFC", "Theta", "Ripple", "U", "V"];
 normalized_heights = rel_heights / sum(rel_heights);
 cumulative_heights = [0, cumsum(normalized_heights)];
 % Define user-defined offsets (if needed)
@@ -32,6 +32,15 @@ visualize.theta    = [0, 40];
 visualize.ripple   = [130, max(efizz.f)];
 auto_offset.theta  = mean(visualize.theta);
 auto_offset.ripple = mean(visualize.ripple);
+
+changepoint = true;
+if changepoint
+    times = [true;diff(selected_rows.trajall) ~= 0];
+    trajtimes = selected.behavior_time(times);
+    trajs = selected_rows.trajall(times);
+    trajs = "T="+string(trajs);
+end
+
 
 ax = gobjects(length(rel_heights), 1); % Pre-allocate memory for axis handles
 rowcnt = 0;
@@ -129,7 +138,7 @@ for i = 1:length(rel_heights)
             clim([m, M]);
             hold on;
             if use_fft_avg
-                scale = median(structfun(@abs,user_offset.theta));
+                scale = 4*median(structfun(@abs,user_offset.fft.theta));
                 set(gca, 'Layer', 'top');
                 plot(selected.efizz.t, scale*selected.efizz.theta_hpc + auto_offset.theta + user_offset.fft.theta.hpc, 'w', 'DisplayName', 'HPC Theta', 'LineWidth', 1.5);
                 set(gca, 'Layer', 'top');
@@ -137,7 +146,7 @@ for i = 1:length(rel_heights)
                 plot(selected.efizz.t, scale*selected.efizz.theta_wpli + auto_offset.theta + user_offset.fft.theta.wpli, 'k', 'DisplayName', 'WPLI Theta', 'LineWidth', 1.5, 'LineStyle', ':');
                 plot(selected.efizz.t, scale*selected.efizz.theta_cavg + auto_offset.theta + user_offset.fft.theta.cavg, 'k', 'DisplayName', 'C-Avg Theta', 'LineWidth', 1.5, 'LineStyle', '--');
             else
-                scale = median(structfun(@abs,user_offset.theta));
+                scale = median(structfun(@abs,user_offset.fft.theta));
                 plot(selected.lfp.time, scale*selected.lfp.hpc.theta + auto_offset.theta + user_offset.lfp.theta.hpc, 'DisplayName', 'HPC Theta', 'LineWidth', 1.5, 'Color', [1 1 1 0.5]);
                 plot(selected.lfp.time, scale*selected.lfp.pfc.theta + auto_offset.theta + user_offset.lfp.theta.pfc, 'DisplayName', 'PFC Theta', 'LineWidth', 1.5, 'Color', [1 0 0 0.5]);
                 plot(selected.efizz.t, scale*selected.efizz.theta_wpli + auto_offset.theta + user_offset.fft.theta.wpli, 'k', 'DisplayName', 'WPLI Theta', 'LineWidth', 1.5, 'LineStyle', ':');
@@ -154,17 +163,17 @@ for i = 1:length(rel_heights)
             clim([m, M]);
             set(gca, 'YDir', 'normal', 'YLim', visualize.ripple);
             hold on;
-            if use_fft_avg
-                scale = 2*median(structfun(@abs,user_offset.ripple));
-                plot(selected.efizz.t, scale*selected.efizz.ripple_hpc + auto_offset.ripple + user_offset.fft.ripple.hpc, 'DisplayName', 'HPC Ripple', 'LineWidth', 1.5, 'Color', [1 1 1 0.5]);
-                plot(selected.efizz.t, scale*selected.efizz.ripple_pfc + auto_offset.ripple + user_offset.fft.ripple.pfc, 'DisplayName', 'PFC Ripple', 'LineWidth', 1.5, 'Color', [1 0 0 0.5]);
-            else
-                scale = median(structfun(@abs,user_offset.ripple));
+            % if use_fft_avg
+            %     scale = 5*median(structfun(@abs,user_offset.fft.ripple));
+            %     plot(selected.efizz.t, scale*selected.efizz.ripple_hpc + auto_offset.ripple + user_offset.fft.ripple.hpc, 'DisplayName', 'HPC Ripple', 'LineWidth', 1.5, 'Color', [1 1 1 0.5]);
+            %     plot(selected.efizz.t, scale*selected.efizz.ripple_pfc + auto_offset.ripple + user_offset.fft.ripple.pfc, 'DisplayName', 'PFC Ripple', 'LineWidth', 1.5, 'Color', [1 0 0 0.5]);
+            % else
+                scale = median(structfun(@abs,user_offset.fft.ripple));
                 plot(selected.lfp.time, scale*selected.lfp.hpc.ripple + auto_offset.ripple + user_offset.lfp.ripple.hpc, 'w', 'DisplayName', 'HPC Ripple', 'LineWidth', 1.5, 'Color', [1 1 1 0.5]);
                 plot(selected.lfp.time, scale*selected.lfp.pfc.ripple + auto_offset.ripple + user_offset.lfp.ripple.pfc, 'r', 'DisplayName', 'PFC Ripple', 'LineWidth', 1.5, 'Color', [1 0 0 0.5]);
                 plot(selected.efizz.t, scale*selected.efizz.ripple_wpli + auto_offset.ripple + user_offset.fft.ripple.wpli, 'k', 'DisplayName', 'WPLI Ripple', 'LineWidth', 1.5, 'LineStyle', ':');
                 plot(selected.efizz.t, scale*selected.efizz.ripple_cavg + auto_offset.ripple + user_offset.fft.ripple.cavg, 'k', 'DisplayName', 'C-Avg Ripple', 'LineWidth', 1.5, 'LineStyle', '--');
-            end
+            % end
             ylabel('Frequency (Hz)');
             title('Ripple Band Average Power for HPC and PFC');
         case 'U'
@@ -188,7 +197,6 @@ for i = 1:length(rel_heights)
                 plots.fill_curve(selected.pattern.X_time, selected.pattern.u(:,3), 'r')
                 alpha(0.1);
             end
-            sumabs = true;
             if sumabs
                 % add in light dotted black the sum of hte absolute values of the top 3 components
                 plot(selected.pattern.X_time, sum(abs(selected.pattern.u(:,1:3)),2), 'DisplayName', 'HPC U, 1-3', 'Color', [0 0 0 0.2], 'LineWidth', 2, 'LineStyle', ':');
@@ -209,7 +217,6 @@ for i = 1:length(rel_heights)
                 plots.fill_curve(selected.pattern.X_time, selected.pattern.v(:,3), 'r');
                 alpha(0.1);
             end
-            sumabs = true;
             if sumabs
                 % add in light dotted black the sum of hte absolute values of the top 3 components
                 plot(selected.pattern.X_time, sum(abs(selected.pattern.v(:,1:3)),2), 'DisplayName', 'PFC V, 1-3', 'Color', [0 0 0 0.2], 'LineWidth', 2, 'LineStyle', ':');
@@ -223,27 +230,41 @@ for i = 1:length(rel_heights)
             ylabel('V Component');
             title('V Component of hpc-pfc communication');
 
+        case 'R' % the product of U and V components
+            plot(selected.pattern.X_time, selected.pattern.r(:,1), 'DisplayName', 'HPC-PFC R');
+            hold on;
+            plots.fill_curve(selected.pattern.X_time, selected.pattern.r(:,1), 'b');
+            alpha(0.5);
+            if dim3
+                % Shading for V Component 3
+                plot(selected.pattern.X_time, selected.pattern.r(:,dim3), 'DisplayName', 'HPC-PFC R, 3', 'Color', [1 0 0 0.2], 'LineWidth', 0.5);
+                plots.fill_curve(selected.pattern.X_time, selected.pattern.r(:,3), 'r');
+                alpha(0.1);
+            end
+            if sumabs
+                % add in light dotted black the sum of hte absolute values of the top 3 components
+                plot(selected.pattern.X_time, sum(abs(selected.pattern.r(:,1:3)),2), 'DisplayName', 'PFC V, 1-3', 'Color', [0 0 0 0.2], 'LineWidth', 2, 'LineStyle', ':');
+            end
+            % Shading for V Component 2
+            yline(0, 'Color', 'k', 'LineWidth', 1.5, 'LineStyle', ':');
+            plot(selected.pattern.X_time, selected.pattern.r(:,2), 'DisplayName', 'HPC-PFC R, 2', 'Color', [0 1 0 0.35], 'LineWidth', 0.5);
+            plots.fill_curve(selected.pattern.X_time, selected.pattern.r(:,2), 'g');
+            clear alpha
+            alpha(0.3);
+            ylabel('R Component');
+            title('R Component of hpc-pfc communication');
+
+
         case 'US'
             % Shading for V Component 1
             plot(selected.pattern.X_time, selected.pattern.us(:,1), 'DisplayName', 'H-H 1');
             hold on;
             plots.fill_curve(selected.pattern.X_time, selected.pattern.us(:,1), 'b');
             alpha(0.5);
-            if dim3
-                % Shading for V Component 3
-                plot(selected.pattern.X_time, selected.pattern.us(:,dim3), 'DisplayName', 'H-H  3', 'Color', [1 0 0 0.2], 'LineWidth', 0.5);
-                plots.fill_curve(selected.pattern.X_time, selected.pattern.v(:,3), 'r');
-                alpha(0.1);
-            end
-            sumabs = true;
-            if sumabs
-                % add in light dotted black the sum of hte absolute values of the top 3 components
-                plot(selected.pattern.X_time, sum(abs(selected.pattern.us(:,1:3)),2), 'DisplayName', 'PFC V, 1-3', 'Color', [0 0 0 0.2], 'LineWidth', 2, 'LineStyle', ':');
-            end
             % Shading for V Component 2
             yline(0, 'Color', 'k', 'LineWidth', 1.5, 'LineStyle', ':');
-            plot(selected.pattern.X_time, selected.pattern.us(:,2), 'DisplayName', 'PFC V, 2', 'Color', [0 1 0 0.35], 'LineWidth', 0.5);
-            plots.fill_curve(selected.pattern.X_time, selected.pattern.v(:,2), 'g');
+            plot(selected.pattern.X_time, selected.pattern.vs(:,2), 'DisplayName', 'PFC V, 2', 'Color', [0 1 0 0.35], 'LineWidth', 0.5);
+            plots.fill_curve(selected.pattern.X_time, selected.pattern.vs(:,2), 'g');
             clear alpha
             alpha(0.3);
             ylabel('V Component');
@@ -292,6 +313,9 @@ for i = 1:length(rel_heights)
                 color = [0.8, 0.8, 0.8];
             end
             yLimits = ylim(thisax);
+            if currWin(2)-currWin(1) > 2
+                continue
+            end
             hPatch = patch('XData', [currWin(1), currWin(1), currWin(2), currWin(2)], ...
                   'YData', [yLimits(1), yLimits(2), yLimits(2), yLimits(1)], ...
                   'FaceColor', color, 'EdgeColor', 'none', ...
@@ -300,12 +324,23 @@ for i = 1:length(rel_heights)
             hAnnotation = get(hPatch, 'Annotation');
             legendInfo = get(hAnnotation, 'LegendInformation');
             set(legendInfo, 'IconDisplayStyle', 'off');
+            % yPosition = yLimits(1) + (yLimits(2) - yLimits(1))/15; % 1/15th of the height of the window
+            % centerTime = selected.wins{netpat}(win_idx, 1);
+            % epsilon = cumsum(1e-11*ones(size(selected.behavior.time)));
+            % trajectoryNum = interp1(selected.behavior.time+epsilon, selected_rows.trajall, centerTime);
+            % text(centerTime, yPosition, string(trajectoryNum), 'HorizontalAlignment', 'center', 'FontSize', 8, 'color', 'k');
             hold on;
         end
         end
         end
         % Restore the hold state of the axis
         hold off; 
+    end
+
+    if changepoint
+        % Then let's annotate the traj
+        yPosition = yLimits(1) + (yLimits(2) - yLimits(1))/15; % 1/15th of the height of the window
+        text(trajtimes, yPosition*ones(size(trajtimes)), trajs, 'HorizontalAlignment', 'center', 'FontSize', 8, 'color', 'k');
     end
 
 end

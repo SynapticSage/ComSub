@@ -162,6 +162,7 @@ for trajbound in tqdm([0, 1], desc="trajbound", total=2):
                 
                 # Compute the mean of the bootstrap sample
                 bootstrap_mean = sample.mean(numeric_only=True).astype(float)
+                bootstrap_var  = sample.var(numeric_only=True).astype(float)
                 
                 # Add the result to the DataFrame
                 bms.append({
@@ -169,6 +170,7 @@ for trajbound in tqdm([0, 1], desc="trajbound", total=2):
                     "lindist_bin": bin_label,
                     "column": column,
                     "bootstrap_mean": bootstrap_mean,
+                    "bootstrap_var": bootstrap_var,
                     "trajbound": trajbound,
                     "animal": animal,
                     "epoch": epoch
@@ -178,7 +180,7 @@ for trajbound in tqdm([0, 1], desc="trajbound", total=2):
 
 # Convert the list of dictionaries to a DataFrame
 print("Converting to DataFrame...")
-bootstrap_means_combined = pd.DataFrame(bootstrap_means_combined)
+bootstrap_means_combined = pd.concat(bootstrap_means_combined, axis=0)
 # Create a new lindist_bin_ind column
 print("Creating lindist_bin_ind column...")
 bootstrap_means_combined["lindist_bin_ind"] = bootstrap_means_combined["lindist_bin"].apply(lambda x: x.right)
@@ -194,6 +196,15 @@ print("rolling mean...")
 bootstrap_means_combined["bootstrap_mean_smooth"] = bootstrap_means_combined.groupby(["animal","epoch","column", "trajbound", "iboot"])["bootstrap_mean"].transform(lambda x: x.rolling(7, 1).mean())
 print("rolling interp...")
 bootstrap_means_combined["bootstrap_mean_smooth"] = bootstrap_means_combined.groupby(["animal","epoch","column", "trajbound", "iboot"])["bootstrap_mean_smooth"].transform(lambda x: x.interpolate())
+# Compute the rolling variance
+bootstrap_means_combined["bootstrap_meanvar_smooth"] = bootstrap_means_combined.groupby(
+    ["animal","epoch","column", "trajbound", "iboot"]
+)["bootstrap_mean"].transform(lambda x: x.rolling(7, 1).var())
+
+# Interpolate the rolling variance
+bootstrap_means_combined["bootstrap_meanvar_smooth"] = bootstrap_means_combined.groupby(
+    ["animal","epoch","column", "trajbound", "iboot"]
+)["bootstrap_meanvar_smooth"].transform(lambda x: x.interpolate())
 
       
 # ----------------------------------------------------
@@ -476,4 +487,150 @@ for column in tqdm(component_fill_bases.keys(),total=len(component_fill_bases.ke
     plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_animal.png"), dpi=300)
     plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_animal.pdf"), dpi=300)
     # plt.close('all')
+
+
+# ------------------------------------------------------
+# RAW
+# ------------------------------------------------------
+for i,(u,v) in enumerate(zip(("U1", "U2", "U3"), ("V1", "V2", "V3"))):
+    df[f"R{i+1}"] = df[u] * df[v]
+
+def plot_property_vs_lindist(df, property_name, N=100_000):
+    """
+    Plot the given property against lindist for both trajbound values.
+    
+    Parameters:
+    - df: DataFrame containing the data
+    - property_name: Name of the property/column to plot
+    - N: Number of points to subsample
+    """
+    
+    # Sort the data by lindist
+    
+    # Set up the figure and axis
+    fig, ax = plt.subplots(2,1,figsize=(12, 6))
+    ax = ax.flatten()
+    
+    # Plot for each trajbound
+    for i, trajbound in enumerate([0, 1]):
+        traj_data = df[df["trajbound"] == trajbound]
+        
+        # Subsample
+        sampled_data = traj_data.sample(n=min(N, len(traj_data)), random_state=42)
+        sampled_data = sampled_data.sort_values(by=["trajbound","lindist"])
+        
+        # Plot
+        ax[i].axhline(y=0, color="red", linestyle="dashed", alpha=0.2)
+        ax[i].axvline(x=0.4, color="black", linestyle="dashed", label="Turn 1")
+        ax[i].axvline(x=0.6, color="black", linestyle="dashed", label="Turn 2")
+        ax[i].plot(sampled_data["lindist"], sampled_data[property_name], 
+                 linewidth=0.2, alpha=0.5)
+        ax[i].set_title(f"Trajbound {trajbound}")
+    
+        # Finalize the plot
+        plt.xlabel("lindist")
+        plt.ylabel(property_name)
+        plt.legend()
+        plt.grid(True)
+    fig.suptitle(f"{property_name} vs lindist")
+    fig.savefig(os.path.join(figfolder, f"{property_name}_vs_lindist.png"), dpi=300)
+    plt.show()
+
+plot_property_vs_lindist(df, "U1")
+plot_property_vs_lindist(df, "U2")
+plot_property_vs_lindist(df, "U3")
+
+plot_property_vs_lindist(df, "V1")
+plot_property_vs_lindist(df, "V2")
+plot_property_vs_lindist(df, "V3")
+
+plot_property_vs_lindist(df, "R1")
+plot_property_vs_lindist(df, "R2")
+plot_property_vs_lindist(df, "R3")
+
+plot_property_vs_lindist(df, "Cavgtheta")
+
+import os
+import matplotlib.pyplot as plt
+
+def plot_property_vs_lindist_by_animal(df, property_name, N=100_000, winsize=None):
+    """
+    Plot the given property against lindist for both trajbound values and for each animal.
+    
+    Parameters:
+    - df: DataFrame containing the data
+    - property_name: Name of the property/column to plot
+    - N: Number of points to subsample
+    - winsize: Window size for rolling mean. If None, no rolling mean is applied.
+    - figfolder: Folder to save the figures
+    """
+    
+    # Set of unique animals
+    animals = df['animal'].unique()
+    
+    # Set up the figure and axes
+    fig, axs = plt.subplots(len(animals), 2, figsize=(12, 6 * len(animals)))
+    
+    # Plot for each trajbound and each animal
+    for i, animal in enumerate(animals):
+        animal_data = df[df["animal"] == animal]
+        
+        for j, trajbound in enumerate([0, 1]):
+            traj_data = animal_data[animal_data["trajbound"] == trajbound]
+            
+            # Subsample
+            sampled_data = traj_data.sample(n=min(N, len(traj_data)), random_state=42)
+            sampled_data = sampled_data.sort_values(by=["trajbound", "lindist"])
+            
+            if winsize:
+                sampled_data[property_name] = sampled_data[property_name].rolling(winsize, min_periods=1).mean().interpolate()
+            
+            # Plot
+            axs[i][j].axhline(y=0, color="red", linestyle="dashed", alpha=0.2)
+            axs[i][j].axvline(x=0.4, color="black", linestyle="dashed", label="Turn 1")
+            axs[i][j].axvline(x=0.6, color="black", linestyle="dashed", label="Turn 2")
+            axs[i][j].plot(sampled_data["lindist"], sampled_data[property_name], linewidth=0.2, alpha=0.5)
+            axs[i][j].set_title(f"Animal {animal} | Trajbound {trajbound}")
+            
+            # Labels and legend
+            axs[i][j].set_xlabel("lindist")
+            axs[i][j].set_ylabel(property_name)
+            axs[i][j].legend()
+            axs[i][j].grid(True)
+    
+    # Overall title
+    fig.suptitle(f"{property_name} vs lindist by Animal", y=1.02)
+    fig.subplots_adjust(top=0.95)
+    
+    # Save the figure
+    figname = f"{property_name}_vs_lindist_by_animal"
+    if winsize:
+        figname += f"_win={winsize}"
+    fig.savefig(os.path.join(figfolder, f"{figname}.png"), dpi=300)
+    
+    plt.tight_layout()
+    plt.show()
+
+
+plot_property_vs_lindist_by_animal(df, "U1")
+plot_property_vs_lindist_by_animal(df, "U2")
+plot_property_vs_lindist_by_animal(df, "U3")
+
+plot_property_vs_lindist_by_animal(df, "V1")
+plot_property_vs_lindist_by_animal(df, "V2")
+plot_property_vs_lindist_by_animal(df, "V3")
+
+plot_property_vs_lindist_by_animal(df, "R1")
+plot_property_vs_lindist_by_animal(df, "R2")
+plot_property_vs_lindist_by_animal(df, "R3")
+
+plot_property_vs_lindist_by_animal(df, "Cavgtheta")
+plot_property_vs_lindist_by_animal(df, "Cavgdelta")
+plot_property_vs_lindist_by_animal(df, "vel")
+plot_property_vs_lindist_by_animal(df, "accel")
+
+plot_property_vs_lindist_by_animal(df, "R1", winsize=100)
+
+# WARNING: TODO we should qqplot the cavgtheta and r1/2/3
+# and do so by epoch as well
 

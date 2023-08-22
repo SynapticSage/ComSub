@@ -16,8 +16,9 @@ load("RunsSummary.mat", "RunsSummary");
 %% Script parameters
 Option = option.defaults();
 Option.tableAppend  = "_coh";
-Option.analysis.cca = true;
+Option.analysis.cca = false;
 Option.midpattern   = true;
+Option.saveRaw     = true;
 tableCheck = true; % Set to true if you want to check RunsSummary table
 X = datetime('now') - hours(18); % Set to the minimum timestamp you want to check RunsSummary table for
 % Option.analysis.checks = true;
@@ -59,10 +60,6 @@ if dopar
 end
 
 %% Run
-dates = NaT(numel(RunsSummary.timestamp),1);
-for i = 1:numel(RunsSummary.timestamp)
-    dates(i) = datetime(RunsSummary.timestamp(i));
-end
 [cntAn, cntH, cntZ]         = deal(0);
 for zsc = progress(zvals,'Title','zscore');  cntZ = cntZ + 1;
 for genH_= progress(h_methods,'Title','genH method'); cntH = cntH + 1;
@@ -72,11 +69,11 @@ for iAnimal = progress(1:numel(animal_list),'Title','Animal'); cntAn = cntAn + 1
         Option.generateH = genH_;
         if tableCheck
             % Check if the combination of animal and generateH exists in RunsSummary and its timestamp is not older than X
-            mask = RunsSummary.animal == Option.animal & ... 
-                   RunsSummary.generateH == Option.generateH & ...
-                   RunsSummary.midpattern == Option.midpattern & ...
-                   RunsSummary.preProcess_zscore == Option.preProcess_zscore & ...
-                   dates > X;
+            dates = NaT(numel(RunsSummary.timestamp),1);
+            for i = 1:numel(RunsSummary.timestamp)
+                dates(i) = datetime(RunsSummary.timestamp(i));
+            end
+            mask = RunsSummary.animal == Option.animal & RunsSummary.generateH == Option.generateH & RunsSummary.midpattern == Option.midpattern & RunsSummary.preProcess_zscore == Option.preProcess_zscore & dates > X;
             if any(mask)
                 disp("")
                 disp("Skipping as entry found in RunsSummary with recent timestamp");

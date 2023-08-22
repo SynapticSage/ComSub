@@ -6,7 +6,8 @@ function fill_curve(X, Y, varargin)
     end
     if iscolumn(Y) && isvector(Y)
         Y = Y';
-    elseif ismatrix(Y) && size(Y,1) > size(Y,2)
+    end
+    if ismatrix(Y) && size(Y,1) > size(Y,2)
         Y = Y'; 
         [Y, lower] = deal(Y(1,:), Y(2,:));
     else

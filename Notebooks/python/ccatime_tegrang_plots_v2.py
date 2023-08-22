@@ -11,8 +11,9 @@ import networkx as nx
 
 animal   = ''
 spectype = 'power'
-folder   = '/Volumes/MATLAB-Drive/Shared/figures/tables/'
-plotfolder = '/Volumes/MATLAB-Drive/Shared/figures/cca_tegrang'
+intermediate = 'midpattern=true'
+folder   = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/'
+plotfolder = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/cca_tegrang'
 if not os.path.exists(plotfolder):
     os.makedirs(plotfolder)
 color_map = {'Cavg': 'blue', 'S1': 'green', 'S2': 'red', 'wpli': 'purple'}

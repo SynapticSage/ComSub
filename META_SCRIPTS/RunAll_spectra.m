@@ -16,7 +16,7 @@ load("RunsSummary.mat", "RunsSummary");
 %% Script parameters
 Option = option.defaults();
 Option.tableAppend     = "_spectra";
-Option.analysis.cca    = true;
+Option.analysis.cca    = false;
 Option.midpattern      = true;
 Option.analysis.checks = false;
 Option.saveRaw         = true;

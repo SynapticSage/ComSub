@@ -16,7 +16,7 @@ from tqdm import tqdm
 tqdm.pandas()
 from scipy.stats import f
 import multiprocessing, dill
-folder = '/Volumes/MATLAB-Drive/Shared/figures/tables/'
+folder = '/Volumes/MATLAB-Drive/Shared/figures/intermediate/tables/'
 name   = 'powerccatime'
 def directionality_test(granger_func, x, y, lag_order, xtest=None, ytest=None):
     f_stat_xy, p_value_xy, r2_xy, r2_y, r2_xy_p = granger_func(x, y, lag_order, xtest, ytest)
@@ -135,6 +135,7 @@ def process_block(block_pairs):
         block_results = pool.map(process_pair, block_pairs)
     return block_results
 pairs = [(i, j) for i in range(dfc.shape[1]) for j in range(dfc.shape[1]) if i != j]
+
 block_size = 32
 num_blocks = len(pairs) // block_size + (len(pairs) % block_size != 0)
 all_results = []
@@ -155,6 +156,47 @@ DF_results.to_csv(os.path.join(folder, f'{pre}.csv'), index=False)
 
 ######################################
 
+def find_missing_pairs(DF_results, pairs):
+    # Extract indices of processed pairs
+    processed_pairs = set(tuple(pair) for pair in DF_results[['column1', 'column2']].drop_duplicates().apply(lambda x: (dfc.columns.get_loc(x['column1']), dfc.columns.get_loc(x['column2'])), axis=1).values)
+    
+    original_pairs = set(pairs)
+    
+    missing_pairs = original_pairs - processed_pairs
+    
+    return missing_pairs
+
+missing_pairs = find_missing_pairs(DF_results, pairs)
+print(f"Number of missing pairs: {len(missing_pairs)}")
+if missing_pairs:
+    print("Missing pairs are:")
+    for pair in missing_pairs:
+        print(pair)
+
+print("Fraction of missing pairs: ", len(missing_pairs) / len(pairs))
+
+block_size = 32
+num_blocks = len(missing_pairs) // block_size + (len(missing_pairs) % block_size != 0)
+all_results = []
+
+for block_index in tqdm(range(num_blocks), total=num_blocks, desc='Blocks'):
+    if block_index <= 0:
+        continue
+    start_index = block_index * block_size
+    end_index = min((block_index + 1) * block_size, len(missing_pairs))
+    block_pairs = list(missing_pairs)[start_index:end_index]
+    block_results = process_block(block_pairs)
+    all_results.extend(block_results)
+    print(f'Finished processing block {block_index + 1} of {num_blocks}')
+
+tmp = pd.concat(all_results)
+DF_results = pd.concat([DF_results, tmp])
+pre = name.replace('ccatime', f'_granger_causality')
+DF_results.to_csv(os.path.join(folder, f'{pre}.csv'), index=False)
+
+
+######################################
+
 # Let's add some summary statistics
 pre = name.replace('ccatime', f'_granger_causality')
 DF_results = pd.read_csv(os.path.join(folder, f'{pre}.csv'))
@@ -163,26 +205,35 @@ df['uid'] = (df['chunk_index'].astype(str) + '_' + df['lag'].astype(str) + '_'
              + df['column1'] + '_' +
              df['column2'])
 row_dict = df.set_index('uid').T.to_dict()
-def directionality_test_vectorized(df, row_dict):
+def directionality_test_vectorized(df, row_dict, drop_missing_reverse=False):
     print("Running directionality test")
+    
     uid_reverse = (df['chunk_index'].astype(str) + '_' + df['lag'].astype(str)
                    + '_' + df['column2'] + '_'
                    + df['column1'])
-    print("finding reverse")
-    df_reverse = pd.DataFrame([row_dict[uid] for uid in uid_reverse])
-    print("found reverse...")
+    
+    # Get the reverse dataframe
+    reverse_rows = [row_dict.get(uid, None) for uid in uid_reverse]
+    
+    # Check for missing reverse entries
+    missing_mask = [row is None for row in reverse_rows]
+    if drop_missing_reverse:
+        df = df[~np.array(missing_mask)].reset_index(drop=True)
+        reverse_rows = [row for row in reverse_rows if row is not None]
+
+    df_reverse = pd.DataFrame(reverse_rows)
+    
     f_stat_xy, p_value_xy = (df['F'], df['pvalue'])
     f_stat_yx, p_value_yx = (df_reverse['F'], df_reverse['pvalue'])
-    print("calculating directionality")
+    
     direction = np.where(f_stat_xy > f_stat_yx, "x->y", "y->x")
-    print("calculating significance")
     significance = np.where(np.minimum(p_value_xy, p_value_yx) < 0.05,
                             "significant", "not significant")
-    print("calculating magnitude")
     magnitude = np.abs(f_stat_xy - f_stat_yx)
-    return pd.DataFrame({'direction': direction, 'significance': significance,
-                         'magnitude': magnitude})
-df_results = directionality_test_vectorized(DF_results, row_dict)
+    
+    return pd.DataFrame({'direction': direction, 'significance': significance, 'magnitude': magnitude})
+
+df_results = directionality_test_vectorized(DF_results, row_dict, drop_missing_reverse=True)
 assert DF_results.shape[0] == df.shape[0]
 DF_results = pd.concat([DF_results, df_results], axis=1)
 print(f"saving {pre}_directionality.csv")

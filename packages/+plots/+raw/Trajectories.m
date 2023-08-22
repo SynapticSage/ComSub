@@ -6,7 +6,7 @@ sampled_X = behavior.X(rand_indices);
 sampled_Y = behavior.Y(rand_indices);
 xlims = quantile(sampled_X, [0.01, 0.99]);
 ylims = quantile(sampled_Y, [0.01, 0.99]);
-pick = 20;
+pick = 100;
 disp("Picking " + pick + " trajectories to plot");
 L = length(unique_traj);
 randset = sort(randperm(L, min(L,pick)));

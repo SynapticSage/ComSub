@@ -6,6 +6,12 @@ function out = regressefizz(efizz, Patterns_overall, field, varargin)
     addParameter(p, 'ploton', false, @islogical);
     parse(p, varargin{:});
     Opt = p.Results;
+
+    if isempty(Patterns_overall.cca)
+        out = [];
+        warning('Patterns_overall is empty. Skipping regression.');
+        return
+    end
     
     % Get the downsampling factor
     d_factor = p.Results.faxis;

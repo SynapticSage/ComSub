@@ -23,6 +23,11 @@ if Option.saveRaw
 	disp("Saving raw...");
 	tic; save(thisFile, "Events", "Spk",'-v7.3', '-append');
 	disp("... " + toc + " seconds");
+else
+	disp("Saving raw scrubbed")
+	Events = nd.flexrmfield(Events, ["H","Hvals","H","times"]);
+	tic; save(thisFile, "Events", '-v7.3', '-append');
+	disp("... " + toc + " seconds");
 end
 
 datetime_=datetime();

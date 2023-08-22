@@ -5,7 +5,9 @@
 %   Patterns_overall - struct of CCA data
 %   behavior - table of behavior data
 %
-% Notes
+%  --------
+% | Notes |
+%  --------
 % - Quantile filter by different behavior var 
 % - occ norm  
 % - cca, dim 3 
@@ -22,6 +24,7 @@ theta_band = [6, 12];
 ripple_band = [150, 250];
 gap_thresh = 0.5; % Adjust as necessary
 use_rescale_avg = true;
+sumabs = false; % whether to plot the sum or average of the components
 sortprop = 'dirlindist';
 sortdir = 'descend';
 dim3 = [];
@@ -42,13 +45,14 @@ sets_wanna_plot_efizz = {["theta_wpli",1,"t"], ...
 ["delta_cavg",1,"t"]
 };
 const = option.constants();
-all_animals = const.all_animals;
-all_animals = ["ZT2" setdiff(all_animals, "ZT2")];
+% all_animals = const.all_animals;
+% all_animals = ["ZT2" setdiff(all_animals, "ZT2")];
+all_animals = ["ZT2","JS15","JS21","JS17"];
 % all_animals = setdiff(all_animals, ["ZT2", "ER1"]);
 compcolors = [
-    0,   128, 128; ...  % Strong Teal
-    255, 165, 0;   ...  % Strong Orange
-    139, 0,   139; ...  % Contrast Color (Purple/Violet)
+    0,   128, 128; ...  % Strong Teal, Theta
+    255, 165, 0;   ...  % Strong Orange, Delta
+    139, 0,   139; ...  % Contrast Color (Purple/Violet) Ripple
     128, 200, 200; ...  % Light Teal
     255, 218, 176; ...  % Light Orange
     214, 161, 214; ...  % Light Purple/Violet
@@ -62,17 +66,38 @@ sgtitle("Window components");
 
 %% LOAD DATA
 for animal = all_animals
-matfile_name=@(animal) hashdefine(animal + "_fromCoherencefromRipTimes_zscore_true_midpattern_true_mostRecentState.mat");
+% matfile_name=@(animal) hashdefine(animal + "_fromCoherencefromRipTimes_zscore_true_midpattern_true_mostRecentState.mat");
+% animal     = "ZT2";
+matfile_name=@(animal) hashdefine(animal + "_fromSpectrafromRipTimes_zscore_true_midpattern_true_mostRecentState.mat");
+pw_matfile_name=@(animal) hashdefine(animal + "_fromSpectrafromRipTimes_zscore_true_midpattern_false_mostRecentState.mat");
 checkpoint = matfile_name(animal);
+pw_checkpoint = pw_matfile_name(animal);
+if exist(pw_checkpoint, 'file')
+    pw_checkpoint = matfile(pw_checkpoint);
+else
+    pw_checkpoint = [];
+end
 
 if ~exist("efizz", "var") && ~exist('Option') || animal ~= Option.animal
     commsubspaceToPath
     clear efizz Spk Option Patterns_overall behavior
-    Option = store.load_checkpoint(checkpoint, 'Option');
+    [Option, Spk, Event, Patterns_overall] = store.load_checkpoint(checkpoint,...
+        'Option', 'Spk', 'Event', 'Patterns_overall');
     Option.save=false;
     Option.analysis.rankRegress=false;
     Option.analysis.cca=false;
-    TheScript;
+    if isempty(Spk) || isempty(Event) || isempty(Patterns_overall)
+        disp("No data for " + animal);
+        TheScript;
+    end
+    if ismember('Events', fieldnames(pw_checkpoint))
+        disp("Loading pw_checkpoint");
+        % Add ripple power windows if available
+        tmp = pw_checkpoint.Events;
+        Events.cellOfWindows{end+1} = tmp.cellOfWindows{3};
+        Events.wincenter{end+1}     = tmp.wincenter{3};
+        Events.hasrippower = size(Events.cellOfWindows, 2);
+    end
     figuredefine("-clearpermfolder")
     load(Option.animal + "spectralBehavior.mat");
     load(Option.animal + "avgeeg.mat");
@@ -87,6 +112,8 @@ if ~exist("efizz", "var") && ~exist('Option') || animal ~= Option.animal
     behavior.dirlindist = sign(behavior.trajbound-0.5) .* behavior.lindist;
     Patterns_overall = analysis.cca(Patterns_overall, Option);
 end
+system("!pushover-cli 'finished loading data for 2016 plot'");
+
 pattern_overall_ind = numel(Patterns_overall);
 pattern_overall_same_ind = {1, size(Patterns_overall,2)};
 savefolder_opt = "_showwin=" + num2str(shadeOption) + "_colorbycomp=" + num2str(colorbycomp) + "_dim3=" + num2str(dim3) + "_sortprop=" + sortprop + "_sortdir=" + sortdir + "_use_fft_avg=" + use_fft_avg;
@@ -280,6 +307,9 @@ selected.pattern.u = Patterns_overall(pattern_overall_ind).cca.u(ind.pattern,:);
 selected.pattern.v = Patterns_overall(pattern_overall_ind).cca.v(ind.pattern,:);
 selected.pattern.a = Patterns_overall(pattern_overall_ind).cca.a;
 selected.pattern.b = Patterns_overall(pattern_overall_ind).cca.b;
+% The overlap between the patterns is the product of the u and v vectors
+selected.pattern.r  = Patterns_overall(pattern_overall_same_ind{:}).cca.u(ind.pattern,:) .* Patterns_overall(pattern_overall_same_ind{:}).cca.v(ind.pattern,:);
+% individual patterns
 selected.pattern.us = Patterns_overall(pattern_overall_same_ind{:}).cca.u(ind.pattern,:);
 selected.pattern.vs = Patterns_overall(pattern_overall_same_ind{:}).cca.v(ind.pattern,:);
 selected.pattern.as = Patterns_overall(pattern_overall_same_ind{:}).cca.a;
@@ -324,7 +354,12 @@ for j = 1:numel(Events.wincenter)
     selected.wins{j} = munge.removeDataGaps(Events.wincenter{j}(ind.wins{j}), ranges, time_gaps, 'gap_thresh', gap_thresh);
     col1 = munge.removeDataGaps(Events.cellOfWindows{j}(ind.wins{j},1), ranges, time_gaps, 'gap_thresh', gap_thresh);
     col2 = munge.removeDataGaps(Events.cellOfWindows{j}(ind.wins{j},2), ranges, time_gaps, 'gap_thresh', gap_thresh);
-    selected.cellOfWindows{j} = [col1, col2];
+    tmp = [col1, col2];
+    lengths = diff(tmp,[],2);
+    bad = (lengths < 0) | lengths > 1;
+    tmp(bad,:) = [];
+    selected.wins{j}(bad) = [];
+    selected.cellOfWindows{j} = tmp;
     clear col1 col2
 end
 selected.behavior.time = munge.removeDataGaps(selected_rows.time, ranges, time_gaps, 'gap_thresh', gap_thresh);
@@ -344,16 +379,16 @@ close all
 plots.raw.Trajectories
 close all
 
-options = {'grid_res', 35, 'sgtitlePrepend', prefix};
 prefix = animal + "_epoch=" + epoch_option + "_trajbound=" + trajbound_option;
+options = {'grid_res', 35, 'sgtitlePrepend', prefix};
 plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'saveloc', savefolder, 'savetitle', "averagemaps_" + prefix);
 plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', "averagemaps_splitbyreward_" + prefix );
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'saveloc', savefolder, 'savetitle', "averagemaps_rollingstd_" + prefix );
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', "averagemaps_rollingstd_splitbyreward_" +prefix);
+% plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'saveloc', savefolder, 'savetitle', "averagemaps_rollingstd_" + prefix );
+% plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', "averagemaps_rollingstd_splitbyreward_" +prefix);
 plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'saveloc', savefolder, 'savetitle', "averagemaps_efizz_" + prefix);
 plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', "averagemaps_splitbyreward_efizz_" + prefix);
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'saveloc', savefolder, 'savetitle', "averagemaps_rollingstd_efizz" + prefix);
-plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', "averagemaps_rollingstd_splitbyreward_efizz_" + prefix);
+% plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'saveloc', savefolder, 'savetitle', "averagemaps_rollingstd_efizz" + prefix);
+% plots.raw.generate_average_set_map(selected, selected_rows, sets_wanna_plot_efizz, options{:}, 'sgtitlePrepend', "STDEV: ", 'useRollingStd', true, 'split_by_reward', true, 'saveloc', savefolder, 'savetitle', "averagemaps_rollingstd_splitbyreward_efizz_" + prefix);
 close all;
 
 %% Correlation plots
@@ -372,17 +407,29 @@ for metric = metrics
     saveas(gcf, fullfile(savefolder, savetitle + ".fig"));
     saveas(gcf, fullfile(savefolder, savetitle + ".pdf"));
 
-    plots.raw.plot_statistic_summary(selected, efizz, metric, @nanmean);
-    
+    fig(fig_title + " (nanmean sig comps)"); clf;
+    tiledlayout(4,1)
+    nexttile
+    plots.raw.plot_statistic_summary_v1(selected, efizz, metric, @(x) nanmean(x,2));
+    nexttile
+    plots.raw.plot_statistic_summary_v1(selected, efizz, metric, @(x) x(:,1));
+    nexttile
+    plots.raw.plot_statistic_summary_v1(selected, efizz, metric, @(x) x(:,2));
+    nexttile
+    plots.raw.plot_statistic_summary_v1(selected, efizz, metric, @(x) x(:,3));
+    saveas(gcf, fullfile(savefolder, savetitle + "_nanmean.png"));
+    saveas(gcf, fullfile(savefolder, savetitle + "_nanmean.fig"));
+    saveas(gcf, fullfile(savefolder, savetitle + "_nanmean.pdf"));
+
 end
 close all;
 % catch
 % end
 
-
-
 end % FOR_EPOCH
+system("pushover-cli 'finished epoch" + epoch_option + " " + datestr(now) + "'");
 end % FOR_TRAJBOUND
+system("pushover-cli 'finished " + animal + " " + datestr(now) + "'");
 end % FOR_ANIMAL
 
 !pushover-cli "Finished 2016 plot"

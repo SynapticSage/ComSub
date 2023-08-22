@@ -64,7 +64,7 @@ colorbar; % Shows a color scale
 title('Correlation Coefficient Matrix');
 xlabel('Variables');
 ylabel('Frequencies (Hz)');
-
+set(gcf, 'Position', get(0, 'Screensize')); % Maximize figure.
 
 if ~isempty(p.saveloc)
     saveas(gcf, fullfile(p.saveloc, p.savetitle + ".fig"))
