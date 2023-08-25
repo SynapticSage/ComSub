@@ -1,4 +1,4 @@
-import os
+import osbs
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -109,8 +109,33 @@ if not name.endswith("_epoch"):
     name = name + "_epoch"
 df.groupby(['animal','epoch']).time.mean().unstack()
 
+# ----------------------------------------------------
+# MAKE SOME VARIABLES
+# ----------------------------------------------------
+df["Cavgtheta_bin"] = pd.qcut(df["Cavgtheta"], 40, labels=False)
 for uv in ["U1", "U2", "U3", "V1", "V2", "V3"]:
     df[f"{uv}a"] = np.abs(df[f"{uv}"])
+
+for i,(u,v) in enumerate(zip(("U1", "U2", "U3"), ("V1", "V2", "V3"))):
+    df[f"R{i+1}"] = df[u] * df[v]
+    # Measure concordance divided by best possible concordance
+    df[f"R{i+1}c"] = df[f"R{i+1}"] / (2*np.mean((df[u].abs(), df[v].abs()), axis=0))**2
+    u = df[u]
+    v = df[v]
+    df[f"R{i+1}d"] = (u+v)/np.sqrt(2) / np.sqrt(u **2 + v **2)
+    df[f"R{i+1}off"] = (u-v)/np.sqrt(2) / np.sqrt(u **2 + v **2)
+    df[f"R{i+1}mag"] = np.sqrt(u **2 + v **2)
+
+    df[f"R{i+1}d_abs"] = df[f"R{i+1}d"].abs()
+    df[f"R{i+1}_on_vs_off"] = np.log10(df[f"R{i+1}d"] / df[f"R{i+1}off"])
+    df[f"R{i+1}_on_vs_mag"] = np.log10(df[f"R{i+1}d"] / df[f"R{i+1}mag"])
+
+df["Roverall_on_vs_off"] = np.log10(df["R_overall"] / (np.sqrt(df["U1"]**2 + df["V1"]**2 + df["U2"]**2 + df["V2"]**2 + df["U3"]**2 + df["V3"]**2)))
+df["R_overall_abs"] = np.sqrt(df["R1d_abs"]**2 + df["R2d_abs"]**2 + df["R3d_abs"]**2)
+df["R_overall"] = np.sqrt(df["R1d"]**2 + df["R2d"]**2 + df["R3d"]**2)
+
+# ----------------------------------------------------
+
 # Number of bins and bootstrap samples
 n_bins = 45
 n_bootstrap_samples = 500
@@ -492,8 +517,6 @@ for column in tqdm(component_fill_bases.keys(),total=len(component_fill_bases.ke
 # ------------------------------------------------------
 # RAW
 # ------------------------------------------------------
-for i,(u,v) in enumerate(zip(("U1", "U2", "U3"), ("V1", "V2", "V3"))):
-    df[f"R{i+1}"] = df[u] * df[v]
 
 def plot_property_vs_lindist(df, property_name, N=100_000):
     """
@@ -553,7 +576,7 @@ plot_property_vs_lindist(df, "Cavgtheta")
 import os
 import matplotlib.pyplot as plt
 
-def plot_property_vs_lindist_by_animal(df, property_name, N=100_000, winsize=None):
+def plot_property_vs_lindist_by_animal(df, property_name, N=100_000, winsize=None, method="mean"):
     """
     Plot the given property against lindist for both trajbound values and for each animal.
     
@@ -583,13 +606,23 @@ def plot_property_vs_lindist_by_animal(df, property_name, N=100_000, winsize=Non
             sampled_data = sampled_data.sort_values(by=["trajbound", "lindist"])
             
             if winsize:
-                sampled_data[property_name] = sampled_data[property_name].rolling(winsize, min_periods=1).mean().interpolate()
-            
+                if method == "mean":
+                    sampled_data[property_name] = sampled_data[property_name].rolling(winsize, min_periods=1).mean().interpolate()
+                elif method == "var":
+                    print("variance")
+                    sampled_data[property_name] = sampled_data[property_name].rolling(winsize, min_periods=1).var().rolling(7).mean().interpolate()
+                elif method == "std":
+                    print("std")
+                    sampled_data[property_name] = sampled_data[property_name].rolling(winsize, min_periods=1).std().interpolate()
+                elif method == "median":
+                    print("median")
+                    sampled_data[property_name] = sampled_data[property_name].rolling(winsize, min_periods=1).median().interpolate()
+        
             # Plot
             axs[i][j].axhline(y=0, color="red", linestyle="dashed", alpha=0.2)
             axs[i][j].axvline(x=0.4, color="black", linestyle="dashed", label="Turn 1")
             axs[i][j].axvline(x=0.6, color="black", linestyle="dashed", label="Turn 2")
-            axs[i][j].plot(sampled_data["lindist"], sampled_data[property_name], linewidth=0.2, alpha=0.5)
+            axs[i][j].plot(sampled_data["lindist"], sampled_data[property_name], linewidth=0.2 if winsize is None else 2, alpha=0.5 if winsize is None else None)
             axs[i][j].set_title(f"Animal {animal} | Trajbound {trajbound}")
             
             # Labels and legend
@@ -599,16 +632,24 @@ def plot_property_vs_lindist_by_animal(df, property_name, N=100_000, winsize=Non
             axs[i][j].grid(True)
     
     # Overall title
-    fig.suptitle(f"{property_name} vs lindist by Animal", y=1.02)
+    if not method.startswith("\n"):
+        method = "\n" + method
+    fig.suptitle(f"{property_name} vs lindist by Animal{method}", y=1.02)
     fig.subplots_adjust(top=0.95)
     
     # Save the figure
     figname = f"{property_name}_vs_lindist_by_animal"
     if winsize:
         figname += f"_win={winsize}"
-    fig.savefig(os.path.join(figfolder, f"{figname}.png"), dpi=300)
-    
+    if "mean" in method:
+        method = ""
+    else:
+        method = "_" + method.replace("\n", "")
+    print("Saving " + figname + method)
+    fig.savefig(os.path.join(figfolder, f"{figname}{method}.png"), dpi=300)
+    fig.savefig(os.path.join(figfolder, f"{figname}{method}.pdf"), dpi=300)
     plt.tight_layout()
+    fig.subplots_adjust(top=0.95)
     plt.show()
 
 
@@ -630,7 +671,175 @@ plot_property_vs_lindist_by_animal(df, "vel")
 plot_property_vs_lindist_by_animal(df, "accel")
 
 plot_property_vs_lindist_by_animal(df, "R1", winsize=100)
+plot_property_vs_lindist_by_animal(df, "R1", winsize=100, method="std")
+
+plot_property_vs_lindist_by_animal(df, "R1d")
+plot_property_vs_lindist_by_animal(df, "R1d", winsize=100)
+plot_property_vs_lindist_by_animal(df, "R1d", winsize=100, method="std")
+plot_property_vs_lindist_by_animal(df, "R2d")
+plot_property_vs_lindist_by_animal(df, "R2d", winsize=100)
+plot_property_vs_lindist_by_animal(df, "R2d", winsize=100, method="std")
+plot_property_vs_lindist_by_animal(df, "R3d")
+plot_property_vs_lindist_by_animal(df, "R3d", winsize=100)
+
+
+pg = sns.PairGrid(df.sample(10_000), vars=["R1c", "R2c", "R3c"], hue="trajbound", palette="Set2")
+pg.map_diag(sns.histplot)
+pg.map_upper(sns.scatterplot)
+# pg.map_lower(sns.hexbinplot)
+pg.add_legend()
+
+pg = sns.PairGrid(df.sample(10_000), vars=["U1", "U2", "U3", "V1", "V2", "V3"], hue="trajbound", palette="Set2")
+pg.map_diag(sns.histplot)
+pg.map_upper(sns.scatterplot)
 
 # WARNING: TODO we should qqplot the cavgtheta and r1/2/3
 # and do so by epoch as well
 
+def assign_lindistzone(ld):
+    if ld < 0.4:
+        return "center"
+    elif ld < 0.6:
+        return "turn"
+    else:
+        return "side"
+df['lindistzone'] = df['lindist'].apply(assign_lindistzone)
+
+
+g=sns.relplot(data=df.sample(10_000), x="epoch", y="R1d", row="trajbound",
+           palette="coolwarm", kind="line", err_style="bars", ci=95)
+g.savefig(os.path.join(figfolder, f"R1d_by_epoch.png"), dpi=300)
+g=sns.relplot(data=df.sample(10_000), x="epoch", y="R2d", row="trajbound",
+            palette="coolwarm", kind="line", err_style="bars", ci=95)
+g.savefig(os.path.join(figfolder, f"R2d_by_epoch.png"), dpi=300)
+g=sns.relplot(data=df.sample(10_000), x="epoch", y="R3d", row="trajbound",
+            palette="coolwarm", kind="line", err_style="bars", ci=95)
+g.savefig(os.path.join(figfolder, f"R3d_by_epoch.png"), dpi=300)
+
+
+g=sns.relplot(data=df.sample(10_000), x="epoch", y="R1d", row="trajbound", hue="lindistzone", hue_order=["center","turn","side"],
+           palette="coolwarm", kind="line", err_style="bars", ci=95)
+g.map(lambda **kwargs: plt.axhline(0, color="black", linestyle="dashed"))
+g.savefig(os.path.join(figfolder, f"R1d_by_epoch_by_zone.png"), dpi=300)
+g.savefig(os.path.join(figfolder, f"R1d_by_epoch_by_zone.pdf"), dpi=300)
+g=sns.relplot(data=df.sample(10_000), x="epoch", y="R2d", row="trajbound", hue="lindistzone", hue_order=["center","turn","side"],
+            palette="coolwarm", kind="line", err_style="bars", ci=95)
+g.map(lambda **kwargs: plt.axhline(0, color="black", linestyle="dashed"))
+g.savefig(os.path.join(figfolder, f"R2d_by_epoch_by_zone.png"), dpi=300)
+g.savefig(os.path.join(figfolder, f"R2d_by_epoch_by_zone.pdf"), dpi=300)
+g=sns.relplot(data=df.sample(10_000), x="epoch", y="R3d", row="trajbound",hue="lindistzone", hue_order=["center","turn","side"],
+            palette="coolwarm", kind="line", err_style="bars", ci=95)
+g.map(lambda **kwargs: plt.axhline(0, color="black", linestyle="dashed"))
+g.savefig(os.path.join(figfolder, f"R3d_by_epoch_by_zone.png"), dpi=300)
+g.savefig(os.path.join(figfolder, f"R3d_by_epoch_by_zone.pdf"), dpi=300)
+
+# ------------------------------------------------------
+
+g=sns.relplot(data=df.sample(80_000), x="epoch", y="R1d", row="trajbound", hue="lindistzone", hue_order=["center","turn","side"],
+              col="animal", 
+           palette="coolwarm", kind="line", err_style="bars", ci=95)
+g.map(lambda **kwargs: plt.axhline(0, color="black", linestyle="dashed"))
+g.savefig(os.path.join(figfolder, f"R1d_by_epoch_by_zone_by_animal.png"), dpi=300)
+g.savefig(os.path.join(figfolder, f"R1d_by_epoch_by_zone_by_animal.pdf"), dpi=300)
+g=sns.relplot(data=df.sample(10_000), x="epoch", y="R2d", row="trajbound", hue="lindistzone", hue_order=["center","turn","side"],
+              col="animal",
+            palette="coolwarm", kind="line", err_style="bars", ci=95)
+g.map(lambda **kwargs: plt.axhline(0, color="black", linestyle="dashed"))
+g.savefig(os.path.join(figfolder, f"R2d_by_epoch_by_zone_by_animal.png"), dpi=300)
+g.savefig(os.path.join(figfolder, f"R2d_by_epoch_by_zone_by_animal.pdf"), dpi=300)
+g=sns.relplot(data=df.sample(10_000), x="epoch", y="R3d", row="trajbound",hue="lindistzone", hue_order=["center","turn","side"],
+              col="animal",
+            palette="coolwarm", kind="line", err_style="bars", ci=95)
+g.map(lambda **kwargs: plt.axhline(0, color="black", linestyle="dashed"))
+g.savefig(os.path.join(figfolder, f"R3d_by_epoch_by_zone_by_animal.png"), dpi=300)
+g.savefig(os.path.join(figfolder, f"R3d_by_epoch_by_zone_by_animal.pdf"), dpi=300)
+
+# ------------------------------------------------------
+
+df["R1d_abs"] = df["R1d"].abs()
+g=sns.relplot(data=df.sample(80_000), 
+              x="epoch", y="R1d_abs",
+              row="trajbound", hue="lindistzone",
+              hue_order=["center","turn","side"], col="animal",
+              palette="coolwarm", kind="line", err_style="bars",
+              ci=95)
+g.map(lambda **kwargs: plt.axhline(0, color="black",
+                                   linestyle="dashed"))
+
+# ------------------------------------------------------
+# Create 10 quantile bins of Cavgtheta
+# ------------------------------------------------------
+
+
+
+for col in ["R1d_abs", "R2d_abs", "R3d_abs", "R_overall_abs"]:
+    # Relation of Cavgtheta to R1d
+    g=sns.relplot(data=df,
+                  x="Cavgtheta_bin", y=col,
+                  row="trajbound", hue="lindistzone",
+                  hue_order=["center","turn","side"], 
+                  palette="coolwarm", kind="line", err_style="bars",
+                  ci=95)
+    g.fig.suptitle(f"{col} vs Cavgtheta_bin mean")
+    g.fig.subplots_adjust(top=0.95)
+    g.fig.savefig(os.path.join(figfolder, f"{col}_vs_Cavgtheta_bin_mean.png"))
+    g.fig.savefig(os.path.join(figfolder, f"{col}_vs_Cavgtheta_bin_mean.pdf"))
+    # Relation of Cavgtheta to R1d
+    g=sns.relplot(data=df,
+                  x="Cavgtheta_bin", y=col,
+                  row="trajbound", hue="lindistzone",
+                  hue_order=["center","turn","side"], 
+                  estimator="std",
+                  palette="coolwarm", kind="line", err_style="bars",
+                  ci=95)
+    g.fig.suptitle(f"{col} vs Cavgtheta_bin std")
+    g.fig.subplots_adjust(top=0.95)
+    g.fig.savefig(os.path.join(figfolder, f"{col}_vs_Cavgtheta_bin_std.png"))
+    g.fig.savefig(os.path.join(figfolder, f"{col}_vs_Cavgtheta_bin_std.pdf"))
+
+
+g=sns.pairplot(df.sample(5_000), vars=["R1d_abs", "R2d_abs", "R3d_abs", "R_overall_abs", "Cavgtheta", "wpli_avgtheta"], hue="trajbound", palette="Set2")
+g.map_diag(sns.histplot)
+# sns.map_upper(sns.scatterplot, alpha=0.1)
+g.map_lower(sns.regplot, scatter_kws={"alpha":0.1})
+plt.savefig(os.path.join(figfolder, f"PairPlot_R1dR2dR3dRoverall_vs_Cavgtheta.png"), dpi=300)
+plt.savefig(os.path.join(figfolder, f"PairPlot_R1dR2dR3dRoverall_vs_Cavgtheta.pdf"), dpi=300)
+
+g=sns.pairplot(df.sample(5_000), vars=["R1d_abs", "R2d_abs", "R3d_abs", "R_overall_abs", "Cavgtheta", "wpli_avgtheta"], hue="epoch", palette="coolwarm", kind=None, diag_kind=None)
+g.map_diag(sns.histplot)
+g.map_upper(sns.kdeplot)
+g.map_lower(sns.regplot, scatter_kws={"alpha":0.1})
+plt.savefig(os.path.join(figfolder, f"PairPlot_R1dR2dR3dRoverall_vs_Cavgtheta_epoch.png"), dpi=300)
+plt.savefig(os.path.join(figfolder, f"PairPlot_R1dR2dR3dRoverall_vs_Cavgtheta_epoch.pdf"), dpi=300)
+
+g=sns.pairplot(df.sample(5_000), vars=["R1d", "R2d", "R3d", "R_overall", "Cavgtheta", "wpli_avgtheta","S1theta","S2theta"], hue="epoch", palette="coolwarm", kind=None, diag_kind=None)
+g.map_diag(sns.histplot)
+g.map_upper(sns.kdeplot)
+g.map_lower(sns.regplot, scatter_kws={"alpha":0.1})
+plt.savefig(os.path.join(figfolder, f"PairPlot_nonabs_R1dR2dR3dRoverall_vs_Cavgtheta_epoch.png"), dpi=300)
+plt.savefig(os.path.join(figfolder, f"PairPlot_nonabs_R1dR2dR3dRoverall_vs_Cavgtheta_epoch.pdf"), dpi=300)
+
+
+# TODO: ON VS OFF
+tmp=df.sample(10_000).query("Roverall_on_vs_off < 8 & R1_on_vs_off < 8 & R2_on_vs_off < 8 & R3_on_vs_off < 8")
+g=sns.pairplot(tmp, vars=["R1_on_vs_off", "R2_on_vs_off", "R3_on_vs_off", "Roverall_on_vs_off", "Cavgtheta", "wpli_avgtheta"], hue="epoch", palette="coolwarm", kind=None, diag_kind=None)
+g.map_diag(sns.histplot)
+g.map_lower(sns.regplot, scatter_kws={"alpha":0.1})
+g.map_upper(sns.kdeplot)
+
+
+# Let's catplot(kind='bar') the level of on_vs_off for each epoch (x) and trajbound (hue) and animal (row)
+
+tmp = df.sample(100_000).query("Roverall_on_vs_off < 8 & R1_on_vs_off < 8 & R2_on_vs_off < 8 & R3_on_vs_off < 8")
+g=sns.catplot(data=tmp, x="epoch", y="Roverall_on_vs_off", hue="trajbound", col="animal", kind="bar", palette="Set2")
+g.savefig(os.path.join(figfolder, f"Roverall_on_vs_off_by_epoch_by_animal.png"), dpi=300)
+g.savefig(os.path.join(figfolder, f"Roverall_on_vs_off_by_epoch_by_animal.pdf"), dpi=300)
+g=sns.catplot(data=tmp, x="epoch", y="R1_on_vs_off", hue="trajbound", col="animal", kind="bar", palette="Set2")
+g.savefig(os.path.join(figfolder, f"R1_on_vs_off_by_epoch_by_animal.png"), dpi=300)
+g.savefig(os.path.join(figfolder, f"R1_on_vs_off_by_epoch_by_animal.pdf"), dpi=300)
+g=sns.catplot(data=tmp, x="epoch", y="R2_on_vs_off", hue="trajbound", col="animal", kind="bar", palette="Set2")
+g.savefig(os.path.join(figfolder, f"R2_on_vs_off_by_epoch_by_animal.png"), dpi=300)
+g.savefig(os.path.join(figfolder, f"R2_on_vs_off_by_epoch_by_animal.pdf"), dpi=300)
+g=sns.catplot(data=tmp, x="epoch", y="R3_on_vs_off", hue="trajbound", col="animal", kind="bar", palette="coolwarm")
+g.savefig(os.path.join(figfolder, f"R3_on_vs_off_by_epoch_by_animal.png"), dpi=300)
+g.savefig(os.path.join(figfolder, f"R3_on_vs_off_by_epoch_by_animal.pdf"), dpi=300)

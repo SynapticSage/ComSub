@@ -49,9 +49,14 @@ if any(contains(Option.generateH, "fromWpli"))
 elseif any(contains(Option.generateH, "fromCoherence"))
     Option.patternNamesFull = Option.patternNames + "-coherence";
     Option.genH_name = "coherence";
-else
+elseif any(contains(Option.generateH, ["fromSpectra", "fromHilbert"]))
     Option.patternNamesFull = Option.patternNames + "-power";
     Option.genH_name = "power";
+elseif any(contains(Option.generateH, "fromCP"))
+    Option.patternNamesFull = Option.patternNames + "-cp";
+    Option.genH_name = "c_given_p";
+else
+    error("No valid Option.generateH")
 end
 
 

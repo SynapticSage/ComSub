@@ -6,8 +6,8 @@ figdict("figure") = f;
 clf;
 
 % Define the relative heights
-rel_heights = [2, 1, 0.4, 0.4, 0.5, 0.5];
-names = ["HPC", "PFC", "Theta", "Ripple", "U", "V"];
+rel_heights = [2, 1, 0.4, 0.4, 0.5, 0.5, extra_raw_efizz_panels_rel];
+names = ["HPC", "PFC", "Theta", "Ripple", "U", "V", extra_raw_efizz_panels];
 normalized_heights = rel_heights / sum(rel_heights);
 cumulative_heights = [0, cumsum(normalized_heights)];
 % Define user-defined offsets (if needed)

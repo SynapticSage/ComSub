@@ -1,4 +1,4 @@
-commsubspaceToPath
+fommsubspaceToPath
 % Grab fields from cgramcnew and place into existing efizz structure
 % (rather than from scratch)
 

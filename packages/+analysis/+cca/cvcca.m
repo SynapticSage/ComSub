@@ -47,19 +47,27 @@ if sp1_equals_sp2
         new_sp2 = sp1(:, idx(halfN+1:end));
 
         % Recursive call
-        out1 = analysis.cca.cvcca(new_sp1, new_sp2, kfold, lambda, maxNpc, false);
-        out2 = analysis.cca.cvcca(new_sp2, new_sp1, kfold, lambda, maxNpc, false);
+        maxNpc1 = min(size(new_sp1, 2), maxNpc);
+        out1 = analysis.cca.cvcca(new_sp1, new_sp2, kfold, lambda, maxNpc1, false);
+        maxNpc2 = min(size(new_sp2, 2), maxNpc);
+        out2 = analysis.cca.cvcca(new_sp2, new_sp1, kfold, lambda, maxNpc2, false);
+
+        if size(out1.A, 2) < pcs 
+            pcinds = 1:size(out1.A, 2);
+        else
+            pcinds = 1:pcs;
+        end
 
         % Placeholder for original dimensions
         A_temp = zeros(numNeurons, pcs);
         B_temp = zeros(numNeurons, pcs);
 
         % Place the smaller A and B vectors at the respective indices
-        A_temp(idx(1:halfN), :)     = out1.A;
-        A_temp(idx(halfN+1:end), :) = out2.A;
+        A_temp(idx(1:halfN), pcinds)     = out1.A;
+        A_temp(idx(halfN+1:end), pcinds) = out2.A;
 
-        B_temp(idx(halfN+1:end), :) = out1.B;
-        B_temp(idx(1:halfN), :)     = out2.B;
+        B_temp(idx(halfN+1:end), pcinds) = out1.B;
+        B_temp(idx(1:halfN), pcinds)     = out2.B;
 
         A_accum(:,:,i) = A_temp;
         B_accum(:,:,i) = B_temp;

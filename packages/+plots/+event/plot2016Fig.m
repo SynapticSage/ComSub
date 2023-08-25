@@ -36,7 +36,8 @@ use_fft_avg = true; % otherwise use lfp
 % For behavior based plotting
 sets_wanna_plot = {...
 ["u",1,"X_time"], ["v",1,"X_time"], ["u",2,"X_time"], ["v",2,"X_time"], ["u",3,"X_time"], ["v",3,"X_time"],...
-["us", 1, "X_time"], ["vs", 1, "X_time"], ["us", 2, "X_time"], ["vs", 2, "X_time"], ["us", 3, "X_time"], ["vs", 3, "X_time"]};
+["us", 1, "X_time"], ["vs", 1, "X_time"], ["us", 2, "X_time"], ["vs", 2, "X_time"], ["us", 3, "X_time"], ["vs", 3, "X_time"], ...
+["r", 1, "X_time"], ["r", 2, "X_time"], ["r", 3, "X_time"]};
 sets_wanna_plot_efizz = {["theta_wpli",1,"t"], ...
  ["ripple_wpli",1,"t"],...
 ["delta_wpli",1,"t"],...
@@ -44,10 +45,13 @@ sets_wanna_plot_efizz = {["theta_wpli",1,"t"], ...
 ["ripple_cavg",1,"t"],...
 ["delta_cavg",1,"t"]
 };
+extra_raw_efizz_panels = [];
+extra_raw_efizz_panels_rel = [];
 const = option.constants();
 % all_animals = const.all_animals;
 % all_animals = ["ZT2" setdiff(all_animals, "ZT2")];
 all_animals = ["ZT2","JS15","JS21","JS17"];
+all_animals = ["JS15","JS21","JS17"];
 % all_animals = setdiff(all_animals, ["ZT2", "ER1"]);
 compcolors = [
     0,   128, 128; ...  % Strong Teal, Theta
@@ -308,12 +312,15 @@ selected.pattern.v = Patterns_overall(pattern_overall_ind).cca.v(ind.pattern,:);
 selected.pattern.a = Patterns_overall(pattern_overall_ind).cca.a;
 selected.pattern.b = Patterns_overall(pattern_overall_ind).cca.b;
 % The overlap between the patterns is the product of the u and v vectors
-selected.pattern.r  = Patterns_overall(pattern_overall_same_ind{:}).cca.u(ind.pattern,:) .* Patterns_overall(pattern_overall_same_ind{:}).cca.v(ind.pattern,:);
+selected.pattern.r  = Patterns_overall(pattern_overall_ind).cca.u(ind.pattern,:) .* Patterns_overall(pattern_overall_ind).cca.v(ind.pattern,:);
 % individual patterns
 selected.pattern.us = Patterns_overall(pattern_overall_same_ind{:}).cca.u(ind.pattern,:);
 selected.pattern.vs = Patterns_overall(pattern_overall_same_ind{:}).cca.v(ind.pattern,:);
 selected.pattern.as = Patterns_overall(pattern_overall_same_ind{:}).cca.a;
 selected.pattern.bs = Patterns_overall(pattern_overall_same_ind{:}).cca.b;
+tmp = min(size(Patterns_overall(pattern_overall_same_ind{:}).cca.u, 2), size(Patterns_overall(pattern_overall_same_ind{:}).cca.v, 2));
+selected.pattern.rs = Patterns_overall(pattern_overall_same_ind{:}).cca.u(ind.pattern,1:tmp) .* Patterns_overall(pattern_overall_same_ind{:}).cca.v(ind.pattern,1:tmp);
+
 
 disp("Patterns_overall" + newline + strjoin(repmat("-", 1, 25)))
 disp(selected.pattern)

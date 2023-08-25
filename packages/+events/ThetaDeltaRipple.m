@@ -88,6 +88,39 @@ elseif contains(Option.generateH, "fromWpli")
     times         = efizz.t;
     [H, Hvals, Hnanlocs, times] = events.generateFromSpectra(times, ...
         spectrogram, frequencyAxis, Option.frequenciesPerPattern);
+elseif contains(Option.generateH, "fromCP") % coherence, greater than median power
+    load(Option.animal + "spectralBehavior.mat");
+    if isfield(efizz, "Cavg")
+        disp("Using new average coherence field");
+        spectrogram   = efizz.Cavg;
+    else
+        disp("Using old coherence field");
+        spectrogram   = efizz.C;
+    end
+    frequencyAxis = efizz.f;
+    times         = efizz.t;
+    [H, Hvals, Hnanlocs, times] = events.generateFromSpectra(times, spectrogram, frequencyAxis,...
+        Option.frequenciesPerPattern);
+    if Option.sourceArea == "CA1"
+        spectrogram = efizz.S1;
+    else
+        spectrogram = efizz.S2;
+    end
+    Cavg = efizz.Cavg;
+    [runningSessions, sleepSessions] = getRunningSessions(Option.animal);
+    [Hpower, ~, ~, ~] = events.generateFromSpectra(times, spectrogram, ...
+        frequencyAxis, Option.frequenciesPerPattern)
+        
+    [Hcoherence, Hvals, Hnanlocs, times] = events.generateFromSpectra(times, Cavg, frequencyAxis,...
+        Option.frequenciesPerPattern);
+    % Get the median power
+    medianPower = median(Hpower, 1, 'omitnan');
+    % Get the coherence
+    H = Hcoherence;
+    % Replace with NaN where the power is less than the median power
+    H(Hpower > medianPower)        = nan;
+    % Hvals(Hpower > medianPower)    = 0;
+    Hnanlocs(Hpower > medianPower) = 1;
 else
     error("Core method for deriving the event matrix is not recognized");
 end
@@ -100,9 +133,7 @@ end
 %       |    |                   
 %% Modify ripple pattern? Lower the threshold as with window sizes
 if contains(Option.generateH, "fromRipTimes")
-
     load(Option.animal + "globalripple01.mat");
-    
     if any(contains(Option.generateH, ["fromWpli", "fromCoherence"]))
         [~, H(:,RIPPLE), Hnanlocs(:,RIPPLE), Hvals(:,RIPPLE), minRippleThreshold, ~] = ...
             events.generateFromRipples(globalripple, ...

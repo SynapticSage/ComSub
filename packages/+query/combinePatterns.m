@@ -23,6 +23,7 @@ kCount = 0;
 P = cell(1,numel(keys));
 B = cell(1,numel(keys));
 keys = keys(:);
+cst = @util.type.castefficient;
 
 fcnt = 0;
 if strcmp(Opt.as,'struct')
@@ -55,7 +56,7 @@ for key = progress(keys','Title','Loading keys')
 
     tmp = matfile(key, 'Writable', true);
     if ~isprop(tmp, 'Option')
-        tmp.("Option") = table2struct(tbl,'ToScalar',true);
+        tmp.("Option") = cst(table2struct(tbl,'ToScalar',true));
     end
 
     fcnt = 0;
@@ -65,13 +66,13 @@ for key = progress(keys','Title','Loading keys')
             disp("Loading " + field + " from " + key);
             if strcmp(Opt.as,'struct')
                 thing = tmp.(field);
-                varargout{1}.(field){kCount} = thing;
+                varargout{1}.(field){kCount} = cst(thing);
             elseif strcmp(Opt.as,'cell')
                 thing = tmp.(field);
-                varargout{fcnt}{kCount} = thing;
+                varargout{fcnt}{kCount} = cst(thing);
             end
             if strcmp(field, "Option") && ~isempty(Opt.verbose)
-                t = struct2table(thing, 'AsArray', true);
+                t = cst(struct2table(thing, 'AsArray', true));
                 disp("----------------")
                 disp("Option for " + key)
                 disp(t(:, Opt.verbose))

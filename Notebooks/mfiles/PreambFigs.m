@@ -16,7 +16,7 @@ RunsSummary(contains(RunsSummary.genH_name, "wpli"),...
 
 %% load
 multi_epoch = false; % usually first 3, last 3 epochs
-zscr        = false; % zscored or not
+zscr        = true; % zscored or not
 midpattern  = true; % midpattern or not
 load("RunsSummary.mat");
 disp(" ---->  Multi epoch: " + multi_epoch)

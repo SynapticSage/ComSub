@@ -35,19 +35,23 @@ disp("Generating windows for events")
 tic;
 
 const = option.constants();
-
 THETA  = const.THETA;
 DELTA  = const.DELTA;
 RIPPLE = const.RIPPLE;
-
 nPatterns = numel(Option.patternNames);
+if ~isempty(Option.positiveDerivativeCheck) && ~all(Option.positiveDerivativeCheck == 0)
+    positiveDerivativeCheck = true;
+else
+    positiveDerivativeCheck = false;
+end
+
 
 %%--------------------
 %% 1s: THETA AND DELTA
 %%--------------------
 [cellOfWindows, cutoffs] = windows.make(Events.times, ...
     Option.quantileToMakeWindows, Events.H(:,THETA:DELTA), Option,...
-    'positiveDerivativeCheck', true, ...
+    'positiveDerivativeCheck', positiveDerivativeCheck, ...
     'outlierQuantile', Option.thetadelta_outlierQuantile);
 
 %%----------------
@@ -111,7 +115,7 @@ end
     windows.make(Events.times,  quantileControl,...  % add windows of control patterns
     Hc(:,THETA:DELTA), Option,... % Selects less than quantile
     'outlierQuantile', Option.thetadelta_outlierQuantile,...
-    'positiveDerivativeCheck', true, ...
+    'positiveDerivativeCheck', positiveDerivativeCheck, ...
     ... under old controls, flag will select from shuffled times, under new, flag will select
     ... lower than quantile
     'higherThanQuantile', Option.oldControlBehavior);
@@ -159,7 +163,7 @@ end
 if Option.midpattern
     [Hm_cellOfWindows, Hm_cutoffs, Hm_lowercutoffs] = windows.make(Events.times, ...
         Option.quantileToMakeWindows, Events.H(:,THETA:DELTA), Option,...
-        'positiveDerivativeCheck', true, ...
+        'positiveDerivativeCheck', positiveDerivativeCheck, ...
         'outlierQuantile', Option.thetadelta_outlierQuantile,...
         'higherThanQuantile', -1);
     coherent_patterns = any(contains(Option.generateH, ["fromCoherence","fromWpli"]));
@@ -205,7 +209,7 @@ end
 % -----------------------------------
 % % Merge into one
 control_start = length(cellOfWindows)+1;
-control_end = length(cellOfWindows)+length(Hc_cellOfWindows)+length(Hm_cellOfWindows);
+control_end   = length(cellOfWindows)+length(Hc_cellOfWindows)+length(Hm_cellOfWindows);
 cellOfWindows(control_start:control_end) = [Hc_cellOfWindows, Hm_cellOfWindows];
 cutoffs = [cutoffs,Hc_cutoffs,Hm_cutoffs];
 lowcutoffs = zeros(1,length(cellOfWindows));
@@ -227,7 +231,7 @@ end
 
 % pick control pattern that actually contains controls, would break if all
 % three are empty...
-if Option.singleControl  &&warnedEmptyControls
+if Option.singleControl && warnedEmptyControls
     for iPossibleControl = nPatterns+1:nPatterns*2
         if ~isempty(cellOfWindows{iPossibleControl})
             cellOfWindows{nPatterns+1} = cellOfWindows{iPossibleControl};
@@ -278,9 +282,9 @@ if any(cellfun(@isempty, cellOfWindows))
 end
 
 Events.cellOfWindows = cellOfWindows;
-Events.cutoffs = cutoffs;
+Events.cutoffs       = cutoffs;
 Events.nWindows      = cellfun(@(x) size(x, 1), cellOfWindows);
-Events.lowcutoffs = lowcutoffs;
+Events.lowcutoffs    = lowcutoffs;
 
 disp("")
 disp("Windows generated " + join(string(numWindowsCut),"-") + " windows cut")
