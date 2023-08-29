@@ -44,8 +44,8 @@ plots.grm.compareField(T, "wpli",      "field", "percMax_rrDim")
 % Test percMax_rrDim
 % ------------------------------------------------------------
 
-stats.dim.powcoh.hpchpc = plots.grm.plotWithPermTest(T, "coherence", "power", "hpc-hpc", "field", "percMax_rrdim"); %close all
-stats.dim.powcoh.hpcpfc = plots.grm.plotWithPermTest(T, "coherence", "power", "hpc-pfc", "field", "percMax_rrdim"); %close all
+stats.dim.powcoh.hpchpc = plots.grm.plotWithPermTest(T, "coherence", "power", "hpc-hpc", "field", "percMax_rrDim"); %close all
+stats.dim.powcoh.hpcpfc = plots.grm.plotWithPermTest(T, "coherence", "power", "hpc-pfc", "field", "percMax_rrDim"); %close all
 
 % ------------------------------------------------------------
 % Test full_model_performance
@@ -298,7 +298,6 @@ end
 
 figure;histogram(T.percMax_rrDim(T.directionality=="hpc-hpc" & T.preProcess_zscore==1));hold on;;histogram(T.percMax_rrDim(T.directionality=="hpc-pfc" & T.preProcess_zscore==1));
 
-
 %% DIMENSION HPC-HPC VS HPC-PFC
 % Create a gramm object
 clf
@@ -343,13 +342,13 @@ g.export('file_name', figuredefine("gramm", "Dim_HPCHPCvsHPCPFC"), 'file_type', 
 %% DIMENSION HPC-HPC VS HPC-PFC
 % Create a gramm object
 clf
-g = gramm('x', categorical(T.patternAbstractSymbol), 'y', T.percMax_rrDim, 'color', categorical(T.directionality));
+g = gramm('x', categorical(T.patternAbstractSymbol), 'y', T.percMax_rrDim, 'color', categorical(T.directionality), 'lightness', categorical(T.control));
 g.set_title('Barplot of percMax_rrDim');
 g.facet_wrap(categorical(T.animal));
 % Set summary statistics for barplot
 g.stat_summary('type', 'ci', 'geom', {'bar','errorbar'}, 'dodge', 1, 'setylim', true); 
 % Aesthetics
-g.set_names('x', 'Pattern Abstract Symbol', 'y', 'percMax_rrDim', 'color', 'Directionality');
+g.set_names('x', 'Pattern Abstract Symbol', 'y', 'percMax_rrDim', 'color', 'Directionality', 'Lightness', 'Quantile')
 g.axe_property('XTickLabelRotation', 45); % Rotate x-labels if necessary
 g.set_text_options('Interpreter', 'tex', 'base_size', 14); % Set text options
 % Draw the plot
@@ -371,11 +370,12 @@ g.draw();
 if ~exist(figuredefine("gramm"), 'dir')
     mkdir(figuredefine("gramm"))
 end
-g.export('file_name', figuredefine("gramm", "percDim_HPCHPCvsHPCPFC_animal"), 'file_type', 'pdf');
+% g.export('file_name', figuredefine("gramm", "percDim_HPCHPCvsHPCPFC_animal"), 'file_type', 'pdf');
+print(gcf, figuredefine("gramm", "percDim_HPCHPCvsHPCPFC_animal"), '-dpdf', '-vector');
 
 % Raw dimensions
 clf
-g = gramm('x', categorical(T.patternAbstractSymbol), 'y', T.rrDim, 'color', categorical(T.directionality));
+g = gramm('x', categorical(T.patternAbstractSymbol), 'y', T.rrDim, 'color', categorical(T.directionality), 'lightness', categorical(T.control));
 g.set_title('Barplot of rrDim');
 g.facet_wrap(categorical(T.animal));
 % Set summary statistics for barplot
@@ -403,7 +403,92 @@ g.draw();
 if ~exist(figuredefine("gramm"), 'dir')
     mkdir(figuredefine("gramm"))
 end
-g.export('file_name', figuredefine("gramm", "Dim_HPCHPCvsHPCPFC_animal"), 'file_type', 'pdf');
+% g.export('file_name', figuredefine("gramm", "Dim_HPCHPCvsHPCPFC_animal"), 'file_type', 'pdf');
+print(gcf, figuredefine("gramm", "Dim_HPCHPCvsHPCPFC_animal"), '-dpdf', '-vector');
+
+%% prediction HPC-HPC VS HPC-PFC
+% Create a gramm object
+clf
+g = gramm('x', categorical(T.patternAbstractSymbol), 'y', T.full_model_performance, 'color', categorical(T.directionality), 'lightness', categorical(T.control));
+g.set_title('Barplot of Prediction');
+g.facet_wrap(categorical(T.animal));
+% Set summary statistics for barplot
+g.stat_summary('type', 'ci', 'geom', {'bar','errorbar'}, 'dodge', 1, 'setylim', true); 
+% Aesthetics
+g.set_names('x', 'Pattern Abstract Symbol', 'y', 'performance', 'color', 'Directionality', 'Lightness', 'Quantile')
+g.axe_property('XTickLabelRotation', 45); % Rotate x-labels if necessary
+g.set_text_options('Interpreter', 'tex', 'base_size', 14); % Set text options
+% Draw the plot
+g.draw();
+% Get the unique animals
+uniqueAnimals = unique(T.animal);
+% Loop through each subplot (facet) and set individual y-axis limits
+% for a = 1:length(uniqueAnimals)
+%     % Get the subplot handle
+%     subplotHandle = subplot(g.facet_axes_handles(a));
+%     % Extract the data for this specific animal
+%     animalData = T.full_model_performance(T.animal == uniqueAnimals(a));
+%     % Calculate the lower and upper quantiles for this animal
+%     y_lower_quantile = quantile(animalData, 0.05); % 5th percentile
+%     y_upper_quantile = quantile(animalData, 0.95); % 95th percentile
+%     % Set the y-axis limits for this subplot
+%     ylim(subplotHandle, [y_lower_quantile, y_upper_quantile]);
+% end
+g.draw();
+if ~exist(figuredefine("gramm"), 'dir')
+    mkdir(figuredefine("gramm"))
+end
+% g.export('file_name', figuredefine("gramm", "percDim_HPCHPCvsHPCPFC_animal"), 'file_type', 'pdf');
+print(gcf, figuredefine("gramm", "prediction_HPCHPCvsHPCPFC_animal"), '-dpdf', '-vector');
+
+
+%% prediction of 1st dim HPC-HPC VS HPC-PFC
+
+% Create a gramm object
+T_field_of_interest = "first_comp_perf";
+clf
+g = gramm('x', categorical(T.patternAbstractSymbol), 'y', T.(T_field_of_interest), 'color', categorical(T.directionality), 'lightness', categorical(T.control));
+g.set_title('Barplot of Prediction');
+g.facet_wrap(categorical(T.animal));
+% Set summary statistics for barplot
+g.stat_summary('type', 'ci', 'geom', {'bar','errorbar'}, 'dodge', 1, 'setylim', true); 
+% Aesthetics
+g.set_names('x', 'Pattern Abstract Symbol', 'y', 'performance', 'color', 'Directionality', 'Lightness', 'Quantile')
+g.axe_property('XTickLabelRotation', 45); % Rotate x-labels if necessary
+g.set_text_options('Interpreter', 'tex', 'base_size', 14); % Set text options
+% Draw the plot
+g.draw();
+% Get the unique animals
+uniqueAnimals = unique(T.animal);
+g.draw();
+if ~exist(figuredefine("gramm"), 'dir')
+    mkdir(figuredefine("gramm"))
+end
+% g.export('file_name', figuredefine("gramm", "percDim_HPCHPCvsHPCPFC_animal"), 'file_type', 'pdf');
+print(gcf, figuredefine("gramm", T_field_of_interest + "_HPCHPCvsHPCPFC_animal"), '-dpdf', '-vector');
+
+%% 2nd component
+T_field_of_interest = "second_comp_perf";
+clf
+g = gramm('x', categorical(T.patternAbstractSymbol), 'y', T.(T_field_of_interest), 'color', categorical(T.directionality), 'lightness', categorical(T.control));
+g.set_title('Barplot of Prediction');
+g.facet_wrap(categorical(T.animal));
+% Set summary statistics for barplot
+g.stat_summary('type', 'ci', 'geom', {'bar','errorbar'}, 'dodge', 1, 'setylim', true); 
+% Aesthetics
+g.set_names('x', 'Pattern Abstract Symbol', 'y', 'performance', 'color', 'Directionality', 'Lightness', 'Quantile')
+g.axe_property('XTickLabelRotation', 45); % Rotate x-labels if necessary
+g.set_text_options('Interpreter', 'tex', 'base_size', 14); % Set text options
+% Draw the plot
+g.draw();
+% Get the unique animals
+uniqueAnimals = unique(T.animal);
+g.draw();
+if ~exist(figuredefine("gramm"), 'dir')
+    mkdir(figuredefine("gramm"))
+end
+% g.export('file_name', figuredefine("gramm", "percDim_HPCHPCvsHPCPFC_animal"), 'file_type', 'pdf');
+print(gcf, figuredefine("gramm", T_field_of_interest + "_HPCHPCvsHPCPFC_animal"), '-dpdf', '-vector');
 
 % ============================================================
 DetailedRunsSummary = T;

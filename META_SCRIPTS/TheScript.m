@@ -1,4 +1,4 @@
-% Connecting ComSub with Rhythms 🗣️🔗🧠🎼
+
 % ========================================
 % ---- PATH -----
 % Matlab uses startup.m to run startup code...
@@ -199,24 +199,24 @@ if Option.analysis.cca % 🔀
     % if ~exist(figuredefine("data"), 'dir'); mkdir(figuredefine("data")); end
     % save(figuredefine("data", "trigspec_" + figAppend), "Option", "triggered_spectrogram_run");
     % 藺 regress
-    tic; dcnt=0;
-    for d = progress([inf], 'Title', 'Regress-faxis'); dcnt=dcnt+1;
-        for i = progress(1:size(Patterns_overall,2), 'Title', 'Regress')
-            for f = progress(["phi","S1","S2","Cavg","wpli_avg"],'Title', 'Regress-field')
-                Patterns_overall(2,i).regress(dcnt).(f) = ... 
-                analysis.cca.regressefizz(efizz, Patterns_overall(2,i), f,...
-                'faxis', d, "tabPrepend", figAppend, 'ploton', true);
-            end
-            close all
-        end
-        for f = progress(["phi","S1","S2","Cavg","wpli_avg"],'Title', 'Regress-field private')
-            Patterns_overall(1,end).regress(dcnt).(f) = ... 
-            analysis.cca.regressefizz(efizz, Patterns_overall(1,end), f,...
-            'faxis', d, "tabPrepend", figAppend+"_private", 'ploton', true);
-        end
-    end
-    close all
-    disp("Regressed efizz in " + toc + " seconds")
+    % tic; dcnt=0;
+    % for d = progress([inf], 'Title', 'Regress-faxis'); dcnt=dcnt+1;
+    %     for i = progress(1:size(Patterns_overall,2), 'Title', 'Regress')
+    %         for f = progress(["phi","S1","S2","Cavg","wpli_avg"],'Title', 'Regress-field')
+    %             Patterns_overall(2,i).regress(dcnt).(f) = ... 
+    %             analysis.cca.regressefizz(efizz, Patterns_overall(2,i), f,...
+    %             'faxis', d, "tabPrepend", figAppend, 'ploton', true);
+    %         end
+    %         close all
+    %     end
+    %     for f = progress(["phi","S1","S2","Cavg","wpli_avg"],'Title', 'Regress-field private')
+    %         Patterns_overall(1,end).regress(dcnt).(f) = ... 
+    %         analysis.cca.regressefizz(efizz, Patterns_overall(1,end), f,...
+    %         'faxis', d, "tabPrepend", figAppend+"_private", 'ploton', true);
+    %     end
+    % end
+    % close all
+    % disp("Regressed efizz in " + toc + " seconds")
     % ---------------------------------------------------------------------
 end
 

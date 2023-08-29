@@ -7,7 +7,7 @@ function plotPatternDim(T, genH_name, directionality, varargin)
     ip.addParameter('y', "percMax_rrDim");
     ip.addParameter('color', "patternAbstract");
     ip.addParameter('lightness', "control");
-    ip.addParameter('pointSize', 10);
+    ip.addParameter('pointSize', 8);
     ip.addParameter('displayStatistics', true);
     ip.parse(varargin{:});
     Opt = ip.Results;
@@ -33,6 +33,7 @@ function plotPatternDim(T, genH_name, directionality, varargin)
     g.set_names('x', 'Pattern Type', 'y', '#(Predictive Dims)/#(Max. Pred. Dims)', 'Color', 'Pattern', 'Lightness', 'Treatment/Control');
     g.set_title(upper(genH_name) + " Example Pattern Dimensionality" + newline() + directionality);
     g.axe_property('XTickLabelRotation', 35);
+    g.axe_property('YLim', [0, 1]);
 
     % Conduct statistical tests if displayStatistics is true
     if Opt.displayStatistics

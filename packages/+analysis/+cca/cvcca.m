@@ -102,6 +102,7 @@ if sp1_equals_sp2
     out.V = sp1 * out.B;
 
 else
+
     doPCA = true; % if false, just use what you're given
 
     if nargin<5

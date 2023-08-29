@@ -47,7 +47,7 @@ function g= runplot(x, y, hpcsubset, Opt, genH_name)
 
     % Set up figure
     clf
-    f = fig("compareField: " + compare + " " + genH_name)
+    f = fig("compareField: " + compare + " " + genH_name);
     corner_kws = {'edges', -M:(1/20 * M):M, 'aspect', 1, 'location', [M/2], 'fill', 'transparent', 'normalization', 'countdensity'};
 
     % Create gramm plot
@@ -62,7 +62,7 @@ function g= runplot(x, y, hpcsubset, Opt, genH_name)
     g.set_text_options('interpreter', 'latex', 'base_size', 10);
 
     % Update gramm plot
-    g.update('subset', hpcsubset.control ~= "low", 'color', categorical(hpcsubset.patternAbstract));
+    g.update('subset', hpcsubset.control == "pattern activity", 'color', categorical(hpcsubset.patternAbstract));
     % set to gray
     g.set_point_options('base_size', Opt.base_size);
     g.set_color_options();

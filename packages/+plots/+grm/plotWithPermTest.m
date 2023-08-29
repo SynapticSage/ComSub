@@ -58,7 +58,7 @@ function stats = plotWithPermTest(T, genH_name1, genH_name2, directionality, var
     g.set_color_options();
     g.stat_cornerhist(corner_kws{:});
     g.geom_abline('style', 'k:');
-    g.geom_jitter('alpha', 0.50, 'width', Opt.width, 'height', Opt.height);
+    g.geom_jitter('alpha', 0.10, 'width', Opt.width, 'height', Opt.height);
     g.draw();
 
     p           = nan(size(unique(filteredsubset1.patternAbstract)));

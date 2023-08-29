@@ -18,11 +18,11 @@ Option = option.defaults();
 Option.tableAppend  = "_cohpow";
 Option.analysis.cca = true;
 Option.midpattern   = true;
-Option.saveRaw     = true;
+Option.saveRaw = true;
 Option.quantileToMakeWindows = 0.75;
 Option.positiveDerivativeCheck = [0 0];
-tableCheck = false; % Set to true if you want to check RunsSummary table
-X = datetime('now') - hours(18); % Set to the minimum timestamp you want to check RunsSummary table for
+tableCheck = true; % Set to true if you want to check RunsSummary table
+X = datetime('now') - hours(3); % Set to the minimum timestamp you want to check RunsSummary table for
 set(0, 'DefaultFigureVisible', 'off');
 % Option.analysis.checks = true;
 

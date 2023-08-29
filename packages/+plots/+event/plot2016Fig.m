@@ -122,7 +122,7 @@ pattern_overall_ind = numel(Patterns_overall);
 pattern_overall_same_ind = {1, size(Patterns_overall,2)};
 savefolder_opt = "_showwin=" + num2str(shadeOption) + "_colorbycomp=" + num2str(colorbycomp) + "_dim3=" + num2str(dim3) + "_sortprop=" + sortprop + "_sortdir=" + sortdir + "_use_fft_avg=" + use_fft_avg;
 if Option.midpattern
-    savefolder = figuredefine("mipattern=true","2016figure", savefolder_opt);
+    savefolder = figuredefine("midpattern=true","2016figure", savefolder_opt);
 else
     savefolder = figuredefine("2016figure",savefolder_opt);
 end
