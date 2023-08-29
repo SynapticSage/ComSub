@@ -1,20 +1,34 @@
 function barplot_property(T, y_var_name, varargin)
+% barplot_property(T, y_var_name, varargin)
+%
+% Plots a barplot of the given y_var_name from the table T.
+%
+% Inputs:
+%   T - A table containing the data to plot
+%   y_var_name - The name of the variable to plot on the y-axis
+%
+% Optional Inputs:
+%   ylim_percentiles - A 1x2 vector containing the lower and upper
+%       percentiles to use for the y-axis limits. Default is [0.05, 0.95].
+%   individual_ylims_for_animals - A boolean indicating whether to set
+%       individual y-limits for each animal. Default is false.
+%   facet_by_animal - A boolean indicating whether to facet the plot by
+%       animal. Default is false.
+
     % Input parsing
     p = inputParser;
-    addRequired(p, 'T');
-    addRequired(p, 'y_var_name', @ischar);
     addParameter(p, 'ylim_percentiles', [0.05, 0.95], @isnumeric);
     addParameter(p, 'individual_ylims_for_animals', false, @islogical);
     addParameter(p, 'facet_by_animal', false, @islogical);
+    addParameter(p, 'switch_facet', false, @islogical);
     
-    parse(p, T, y_var_name, varargin{:});
+    p.parse(varargin{:});
     
     % Extract the parsed inputs
-    T = p.Results.T;
-    y_var_name = p.Results.y_var_name;
     ylim_percentiles = p.Results.ylim_percentiles;
     individual_ylims_for_animals = p.Results.individual_ylims_for_animals;
     facet_by_animal = p.Results.facet_by_animal;
+    switch_facet = p.Results.switch_facet;
 
     % The rest of the function remains unchanged...
 
@@ -39,7 +53,11 @@ function barplot_property(T, y_var_name, varargin)
 
     % Faceting
     if facet_by_animal
-        g.facet_wrap({categorical(T.animal), categorical(T.genH_name)});
+        if switch_facet
+            g.facet_grid(categorical(T.genH_name), categorical(T.animal));
+        else
+            g.facet_grid(categorical(T.animal), categorical(T.genH_name));
+        end
     else
         g.facet_wrap(categorical(T.genH_name));
     end
@@ -66,9 +84,13 @@ function barplot_property(T, y_var_name, varargin)
     end
 
     % Exporting the figure
+    if facet_by_animal
+        facet = "_facet_by_animal_and_genH";
+    else
+        facet = "_facet_by_genH";
+    end
     if ~exist(figuredefine("gramm"), 'dir')
         mkdir(figuredefine("gramm"))
     end
-    print(gcf, figuredefine("gramm", [y_var_name, "_facet"]), '-dpdf', '-vector');
+    print(gcf, figuredefine("gramm", "barplot_" + y_var_name + "_facet" + facet), '-dpdf', '-vector','-fillpage');
 end
-
