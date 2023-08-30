@@ -296,7 +296,10 @@ for a = 1:length(uniqueAnimals)
     end
 end
 
-figure;histogram(T.percMax_rrDim(T.directionality=="hpc-hpc" & T.preProcess_zscore==1));hold on;;histogram(T.percMax_rrDim(T.directionality=="hpc-pfc" & T.preProcess_zscore==1));
+figure;
+histogram(T.percMax_rrDim(T.directionality=="hpc-hpc" & T.preProcess_zscore==1));
+hold on;
+histogram(T.percMax_rrDim(T.directionality=="hpc-pfc" & T.preProcess_zscore==1));
 
 %% DIMENSION HPC-HPC VS HPC-PFC
 plots.grm.barplot_property(T, "rrDim");
@@ -316,13 +319,10 @@ plots.grm.barplot_property(T, "full_model_performance", 'facet_by_animal', true,
 DetailedRunsSummary = T;
 % Get unique directionality values
 uniqueDirections = unique(DetailedRunsSummary.directionality);
-
 % Create a color map for the different directionality values
 colorMap = lines(length(uniqueDirections));
-
 figure;
 hold on;
-
 % Loop over unique directionality values and plot them
 for i = 1:length(uniqueDirections)
     % Logical index for current directionality
@@ -331,16 +331,12 @@ for i = 1:length(uniqueDirections)
     % Plot the datetime versus percMax_rrDim for this directionality
     plot(DetailedRunsSummary.datetime(idx), DetailedRunsSummary.percMax_rrDim(idx), '-o', 'Color', colorMap(i,:));
 end
-
 xlabel('Date');
 ylabel('percMax_rrDim');
 title('Variation of percMax_rrDim over Time by Directionality');
 grid on;
-
 ax = gca;
 ax.XTickFormat = 'dd-MMM-yyyy';
 xtickangle(45);
-
 % Add a legend
 legend(string(uniqueDirections), 'Location', 'best');
-

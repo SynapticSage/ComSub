@@ -1,4 +1,4 @@
-import osbs
+import os, gc
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,6 +9,29 @@ from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 import itertools
 import matplotlib.cm as cm
+
+def downcast_dataframe(df):
+    """
+    Downcasts a DataFrame's columns to save memory.
+    
+    - Int64/Int32 columns are casted to Int16.
+    - Float64 columns are casted to Float32.
+
+    Args:
+    - df (pd.DataFrame): The input dataframe.
+
+    Returns:
+    - pd.DataFrame: The downcasted dataframe.
+    """
+    
+    for col in df.columns:
+        if df[col].dtype == 'int64' or df[col].dtype == 'int32':
+            df[col] = df[col].astype('int16')
+        elif df[col].dtype == 'float64':
+            df[col] = df[col].astype('float32')
+    
+    return df
+
 
 # Set the flag for shading the confidence intervals to False
 # - - - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - - 
@@ -75,13 +98,13 @@ line_styles = {
 # - - - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - -- - - 
 print("Loading data...")
 intermediate = "midpattern=true"
-folder = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/'
-figfolder = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/lindist_bootstrap_epoch/zscore'
+folder       = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/'
+figfolder    = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/lindist_bootstrap_epoch/zscore'
 if not os.path.exists(figfolder):
     os.makedirs(figfolder)
 # name   = 'ZT2powerccatime'
 name   = 'powerccatime'
-append = '_50bin'
+append = '_50bin_onlyrcols'
 datafile = os.path.join(folder, f'{name}.*')
 datafile = glob.glob(datafile)[0]
 if os.path.splitext(datafile)[1] == '.csv':
@@ -117,29 +140,29 @@ for uv in ["U1", "U2", "U3", "V1", "V2", "V3"]:
     df[f"{uv}a"] = np.abs(df[f"{uv}"])
 
 for i,(u,v) in enumerate(zip(("U1", "U2", "U3"), ("V1", "V2", "V3"))):
-    df[f"R{i+1}"] = df[u] * df[v]
     # Measure concordance divided by best possible concordance
-    df[f"R{i+1}c"] = df[f"R{i+1}"] / (2*np.mean((df[u].abs(), df[v].abs()), axis=0))**2
     u = df[u]
     v = df[v]
-    df[f"R{i+1}d"] = (u+v)/np.sqrt(2) / np.sqrt(u **2 + v **2)
+    df[f"R{i+1}"] = (u+v)/np.sqrt(2) / np.sqrt(u **2 + v **2)
+    df[f"R{i+1}c"] = df[f"R{i+1}"] / (2*np.mean((u.abs(), v.abs()), axis=0))**2
     df[f"R{i+1}off"] = (u-v)/np.sqrt(2) / np.sqrt(u **2 + v **2)
     df[f"R{i+1}mag"] = np.sqrt(u **2 + v **2)
+    df[f"R{i+1}_abs"] = df[f"R{i+1}"].abs()
+    df[f"R{i+1}_on_vs_off"] = np.log10(df[f"R{i+1}"] / df[f"R{i+1}off"])
+    df[f"R{i+1}_on_vs_mag"] = np.log10(df[f"R{i+1}"] / df[f"R{i+1}mag"])
 
-    df[f"R{i+1}d_abs"] = df[f"R{i+1}d"].abs()
-    df[f"R{i+1}_on_vs_off"] = np.log10(df[f"R{i+1}d"] / df[f"R{i+1}off"])
-    df[f"R{i+1}_on_vs_mag"] = np.log10(df[f"R{i+1}d"] / df[f"R{i+1}mag"])
+df["Roverall_on_vs_off"] = np.log10(np.sqrt(np.sum(df[["R1", "R2", "R3"]]**2, axis=1)) / np.sqrt(np.sum(df[["R1off", "R2off", "R3off"]]**2, axis=1)))
+df["R_overall_abs"] = np.sqrt(np.sum(df[["R1_abs", "R2_abs", "R3_abs"]]**2, axis=1))
+df["R_overall"]     = np.sqrt(np.sum(df[["R1", "R2", "R3"]]**2, axis=1))
 
-df["Roverall_on_vs_off"] = np.log10(df["R_overall"] / (np.sqrt(df["U1"]**2 + df["V1"]**2 + df["U2"]**2 + df["V2"]**2 + df["U3"]**2 + df["V3"]**2)))
-df["R_overall_abs"] = np.sqrt(df["R1d_abs"]**2 + df["R2d_abs"]**2 + df["R3d_abs"]**2)
-df["R_overall"] = np.sqrt(df["R1d"]**2 + df["R2d"]**2 + df["R3d"]**2)
+df = downcast_dataframe(df)
+gc.collect()
 
 # ----------------------------------------------------
 
 # Number of bins and bootstrap samples
 n_bins = 45
 n_bootstrap_samples = 500
-
 # Update the columns to bootstrap
 columns_to_bootstrap = ["U1", "U2", "U3", "V1", "V2", "V3",
                         "U1a", "U2a", "U3a", "V1a", "V2a", "V3a",
@@ -147,30 +170,54 @@ columns_to_bootstrap = ["U1", "U2", "U3", "V1", "V2", "V3",
                         "Cavgdelta", "Cavgripple", "S1theta", "S1delta", 
                         "S2theta", "wpli_avgtheta", "S1ripple", "S2ripple",
                         "S2delta", "wpli_avgripple", "wpli_avgdelta", "mua",
-                        "vel", "accel"]
-
+                        "vel", "accel",
+                        "R1", "R2", "R3", 
+                        "R1c", "R2c", "R3c", 
+                        "R1off", "R2off", "R3off",
+                        "R1mag", "R2mag", "R3mag",
+                        "R1_abs", "R2_abs", "R3_abs",
+                        "R1_on_vs_off", "R2_on_vs_off", "R3_on_vs_off",
+                        "R1_on_vs_mag", "R2_on_vs_mag", "R3_on_vs_mag",
+                        "Roverall_on_vs_off", "R_overall_abs", "R_overall"]
 
 # Reinitialize the DataFrame to hold the results
-bootstrap_means_combined = []
 # Bin the lindist data
 df["lindist_bin"] = pd.cut(df["lindist"], bins=n_bins)
+check_existing = False
+if check_existing and os.path.exists(os.path.join(folder, f'{name}_bootstrap{append}.parquet')):
+    bootstrap_means_combined = pd.read_parquet(os.path.join(folder, f'{name}_bootstrap{append}.parquet'))
+    print("memory usage: ", bootstrap_means_combined.memory_usage().sum() / 1e6, "MB")
+else:
+    bootstrap_means_combined = []
+
+
+if append.endswith("onlyrcols"):
+    columns_to_bootstrap = [c for c in columns_to_bootstrap if c.startswith("R")]
+# bootstrap_means_combined.query('column not in @only_r_columns', inplace=True)
 
 # Rerun the bootstrap for each bin and each column, for each trajectory bound
 print("Running bootstrap with {} bins and {} bootstrap samples...".format(n_bins, n_bootstrap_samples))
 for trajbound in tqdm([0, 1], desc="trajbound", total=2):
     # Filter the data based on trajbound
-    data_trajbound = df[df["trajbound"] == trajbound]
-    
+    data_trajbound = df.query('trajbound == @trajbound')
     # Loop over the unique combinations of column, trajbound, and lindist_bin
     iters = list(itertools.product(columns_to_bootstrap, 
                                    data_trajbound["lindist_bin"].unique().categories,
                                    data_trajbound["epoch"].unique()))
-
+    bootstrap_means_combined_trajbound = []
+    gc.collect()
     for (column, bin_label, epoch) in tqdm(iters, desc="column, lindist_bin", total=len(iters)):
+        if check_existing:
+            print("Checking for existing entries...")
+            existing_entries = bootstrap_means_combined.query('column == @column & lindist_bin == @bin_label & epoch == @epoch').shape[0]
+            if existing_entries > 0:
+                print("Skipping trajbound {}, column {}, lindist_bin {}, epoch {}".format(trajbound, column, bin_label, epoch))
+                continue
         # Get the data for this column, trajbound, and bin_label
         data = data_trajbound.loc[(data_trajbound["lindist_bin"] == bin_label) &
                                   (data_trajbound["epoch"] == epoch),
                                   ["animal",column]]
+        # data = data_trajbound.query('lindist_bin == @bin_label & epoch == @epoch')[["animal", column]]
         
         # Find the minimum number of points available for each animal
         min_points_per_animal = data.groupby("animal").size().min()
@@ -201,7 +248,9 @@ for trajbound in tqdm([0, 1], desc="trajbound", total=2):
                     "epoch": epoch
                 })
         bms = pd.DataFrame(bms)
-        bootstrap_means_combined.append(bms)
+        gc.collect()
+        bootstrap_means_combined_trajbound.append(bms)
+    bootstrap_means_combined.append(downcast_dataframe(pd.concat(bootstrap_means_combined_trajbound, axis=0)))
 
 # Convert the list of dictionaries to a DataFrame
 print("Converting to DataFrame...")
@@ -833,13 +882,13 @@ g.map_upper(sns.kdeplot)
 tmp = df.sample(100_000).query("Roverall_on_vs_off < 8 & R1_on_vs_off < 8 & R2_on_vs_off < 8 & R3_on_vs_off < 8")
 g=sns.catplot(data=tmp, x="epoch", y="Roverall_on_vs_off", hue="trajbound", col="animal", kind="bar", palette="Set2")
 g.savefig(os.path.join(figfolder, f"Roverall_on_vs_off_by_epoch_by_animal.png"), dpi=300)
-g.savefig(os.path.join(figfolder, f"Roverall_on_vs_off_by_epoch_by_animal.pdf"), dpi=300)
+g.savefig(os.path.join(figfolder, f"Roverall_on_vs_off_by_epoch_by_animal.pdf"))
 g=sns.catplot(data=tmp, x="epoch", y="R1_on_vs_off", hue="trajbound", col="animal", kind="bar", palette="Set2")
 g.savefig(os.path.join(figfolder, f"R1_on_vs_off_by_epoch_by_animal.png"), dpi=300)
-g.savefig(os.path.join(figfolder, f"R1_on_vs_off_by_epoch_by_animal.pdf"), dpi=300)
+g.savefig(os.path.join(figfolder, f"R1_on_vs_off_by_epoch_by_animal.pdf"))
 g=sns.catplot(data=tmp, x="epoch", y="R2_on_vs_off", hue="trajbound", col="animal", kind="bar", palette="Set2")
 g.savefig(os.path.join(figfolder, f"R2_on_vs_off_by_epoch_by_animal.png"), dpi=300)
-g.savefig(os.path.join(figfolder, f"R2_on_vs_off_by_epoch_by_animal.pdf"), dpi=300)
+g.savefig(os.path.join(figfolder, f"R2_on_vs_off_by_epoch_by_animal.pdf"))
 g=sns.catplot(data=tmp, x="epoch", y="R3_on_vs_off", hue="trajbound", col="animal", kind="bar", palette="coolwarm")
 g.savefig(os.path.join(figfolder, f"R3_on_vs_off_by_epoch_by_animal.png"), dpi=300)
-g.savefig(os.path.join(figfolder, f"R3_on_vs_off_by_epoch_by_animal.pdf"), dpi=300)
+g.savefig(os.path.join(figfolder, f"R3_on_vs_off_by_epoch_by_animal.pdf"))

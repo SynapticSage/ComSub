@@ -183,6 +183,7 @@ if Option.analysis.cca % 🔀
     % ---------------------------------------------------------------------
     % Triggered spectrogram u ---------------------------------------------
     % (create compute triggered spectrograms for commsubs)
+    % WARNING: FIX THE BASED ON
     % disp("Running triggered spectrogram - run")
     % close all
     % % 藺 triggered win

@@ -1,8 +1,30 @@
 function folder = codedefine(varargin)
 
-persistent announced
+persistent announced permfolder creation
 if ~exist('announced', 'var') || isempty(announced)
     announced = false;
+end
+
+% Initialization for creation
+if ~exist('creation', 'var')
+    creation = false;
+end
+
+% Handle the permfolder and creation options
+if ~isempty(varargin)
+    if varargin{1} == "-permfolder"
+        permfolder = varargin(2:end);
+        return
+    elseif varargin{1} == "-clearpermfolder"
+        permfolder = [];
+        return
+    elseif varargin{1} == "-getpermfolder"
+        folder = permfolder;
+        return
+    elseif varargin{1} == "-creation"
+        creation = varargin{2};
+        return
+    end
 end
 
 if ispc
@@ -27,7 +49,19 @@ end
 
 folder = string(folder);
 if nargin > 0
-    folder = fullfile(folder, varargin{:});
+    if exist('permfolder', 'var') && ~isempty(permfolder)
+        folder = fullfile(folder, permfolder{:}, varargin{:});
+    else
+        folder = fullfile(folder, varargin{:});
+    end
+end
+
+% If creation flag is true and directory doesn't exist, create it
+if creation
+    if ~exist(folder, 'dir')
+        mkdir(folder);
+    end
 end
 
 end
+

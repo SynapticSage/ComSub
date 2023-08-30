@@ -143,6 +143,7 @@ Patterns = Patterns(I,:,:,:,:,:,:);
 % ISSUE: THIS BREAKS FOR MIDPATTERN=1 and ZSCR=1
 P = munge.reshapeByLabels_v2(Patterns, 1, ["genH_name","animal"]);
 O = munge.reshapeByLabels_v2(Option, 1,   ["genH_name","animal"]);
+clear Out
 
 %% Calculate the pattern 
 T = query.getPatternTable(Patterns, Option);

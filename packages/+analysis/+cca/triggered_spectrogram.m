@@ -13,7 +13,7 @@ function out = triggered_spectrogram(Patterns_overall, Spk, efizz, varargin)
 ip = inputParser();
 ip.addParameter('ploton', false, @islogical);
 ip.addParameter('windowsize', 50, @isnumeric);
-ip.addParameter('specNames',  {'S1','S2','Cavg','wpli_avg','phi'}, @iscellstr);
+ip.addParameter('specNames', {'S1','S2','Cavg','wpli_avg','phi'}, @iscellstr);
 ip.addParameter('freq_ylims', [0, 50], @isnumeric);
 ip.addParameter('components', [1,2,3,4,5], @isnumeric);
 ip.addParameter('figAppend', "");

@@ -979,4 +979,3 @@ for i in range(1, 3):
         plt.savefig(os.path.join(figfolder,f'{i}_{field}_genH_overtime_hue=highlow_row=genH.png'), dpi=300)
         plt.savefig(os.path.join(figfolder,f'{i}_{field}_genH_overtime_hue=highlow_row=genH.pdf'), dpi=300)
 
-
