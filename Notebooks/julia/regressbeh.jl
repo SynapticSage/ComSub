@@ -1,3 +1,4 @@
+using Distributed: remotecall_eval
 using Plots, StatsPlots
 using Metrics
 using Statistics
@@ -6,17 +7,25 @@ using MAT
 using Serialization
 using Interpolations
 import Turing
+import MLJBase
 using DataFrames
 using ProgressMeter
 using Distributed, Metrics
 # import Threads
 using SearchSortedNearest
 using Infiltrator
+using PyCall
+@pyimport sklearn.metrics as skm
+@pyimport warnings
+warnings.filterwarnings("ignore")
+@pyimport sklearn.preprocessing as skp
 @everywhere using TuringGLM
 n_chains = 4;
 # Number of samples
+animals = ["JS21", "JS15", "JS14", "ZT2", "JS17", "JS13"]
 n_samples = 500;
 numsamprow = 50_000;
+overwrite = true
 Threads.nthreads() = n_chains;
 # addprocs(n_chains-1)
 folder = "/Volumes/MATLAB-Drive/Shared/figures/midpattern=true/data/"
@@ -24,6 +33,7 @@ plotfolder=joinpath(splitpath(folder)[1:end-1]..., "julia_regressbeh")
 if !isdir(plotfolder)
 	mkdir(plotfolder)
 end
+global behavior_names = ["vel", "lindist", "accel", "trajbound", "leftright", "rewarded", "futureRewarded", "previousRewarded", "idphi", "future"]
 
 if isfile(joinpath(folder, "coeffs_dict.jls"))
 	coeffs_dict = deserialize(joinpath(folder, "coeffs_dict.jls"))
@@ -48,8 +58,12 @@ end
 if isfile(joinpath(folder, "predictions_df.jls"))
 	predictions_df = deserialize(joinpath(folder, "predictions_df.jls"))
 else
-	predictions_df = DataFrame(animal = String[], behavior = String[], time = Float64[], actual = Float64[], predicted = Float64[], n_sample = Int[],
-		accuracy = Float64[], r2 = Float64[], mse = Float64[], paramset = String[])
+	predictions_df = DataFrame()
+end
+if isfile(joinpath(folder, "coeffs_df.jls"))
+	coefs_df = deserialize(joinpath(folder, "coeffs_df.jls"))
+else
+	coefs_df = DataFrame()
 end
 
 function get_dataset(animal)
@@ -68,7 +82,6 @@ function get_dataset(animal)
 	pop!(behavior_dict, "X")
 	pop!(behavior_dict, "Y")
 	behavior_names = setdiff(behavior_names, ["time", "X", "Y"]);
-	global behavior_names = ["vel", "lindist", "accel", "trajbound", "leftright", "rewarded", "futureRewarded", "previousRewarded", "idphi", "future"]
 	# For each behavior:
 	time_indices = searchsortednearest.([behavior_time], vec(uv_time))
 	for behavior in behavior_names
@@ -96,8 +109,25 @@ function get_dataset(animal)
 	(;U, V, R, Ru, uv_time, spikeRateMatrix, behavior_dict, behavior_names,
 		df_R, df_Ru)
 end
+function get_df(pos...; behavior)
+	""" Combine the position dataframes with the behavior dataframe """
+	target_behavior = vec(behavior_dict[behavior])
+	if any(isnan.(target_behavior))
+		target_behavior = convert(Vector{Union{Missing, eltype(target_behavior)}}, target_behavior)
+		target_behavior[isnan.(target_behavior)] .= missing
+	end
+	# Combine the dataframes
+	global df = DataFrames.hcat(pos...)
+	df[!,:Behavior].=target_behavior
+	dropmissing!(df)
+end
 
-animals = ["JS21", "JS15", "JS14", "ZT2", "JS17", "JS13"]
+                              
+#  . .     --.--          o     
+# -+-+-      |  ,---.,---..,---.
+# -+-+-      |  |    ,---|||   |
+#  ` `       `  `    `---^``   '
+                              
 
 for animal in animals
 
@@ -106,25 +136,12 @@ for animal in animals
 	@unpack U, V, R, Ru, uv_time, spikeRateMatrix, behavior_dict, behavior_names, df_R, df_Ru = data
 
 
-	function get_df(pos...; behavior)
-		""" Combine the position dataframes with the behavior dataframe """
-		target_behavior = vec(behavior_dict[behavior])
-		if any(isnan.(target_behavior))
-			target_behavior = convert(Vector{Union{Missing, eltype(target_behavior)}}, target_behavior)
-			target_behavior[isnan.(target_behavior)] .= missing
-		end
-		# Combine the dataframes
-		global df = DataFrames.hcat(pos...)
-		df[!,:Behavior].=target_behavior
-		dropmissing!(df)
-	end
-
 	# For one behavior at a time:
 	prog = Progress(length(behavior_names))
 	@showprogress "behaviors" for behavior in behavior_names
 		display(behavior)
 		global bname = behavior
-		if (animal,behavior) ∈ keys(coeffs_dict)
+		if (animal,behavior) ∈ keys(coeffs_dict) && !overwrite
 			next!(prog)
 			continue
 		end
@@ -144,6 +161,7 @@ for animal in animals
 		formula_str = "Behavior ~ " * join(predictors, " + ")
 		# Convert the string to an expression
 		formula_expr = Meta.parse("formula = @formula($formula_str)")
+		target_behavior = df[:, :Behavior]
 		ubeh = unique(target_behavior)
 		if length(ubeh) == 2
 			model = Bernoulli;
@@ -186,9 +204,15 @@ for animal in animals
 	# Save the dictionaries to disk
 	serialize(joinpath(folder, "coeffs_dict.jls"), coeffs_dict)
 	serialize(joinpath(folder, "models_dict.jls"), models_dict)
+	serialize(joinpath(folder, "inds_dict.jls"), inds_dict)
 end
 
-
+                             
+#  . .     --.--          |    
+# -+-+-      |  ,---.,---.|--- 
+# -+-+-      |  |---'`---.|    
+#  ` `       `  `---'`---'`---'
+                             
 
 # Function to predict based on test data and coefficients
 function predict(test_data, coeffs)
@@ -215,7 +239,6 @@ Predicts on test data and computes summary statistics.
 function predict_and_compute_stats_v2(model,
 	test_data, predictors;
 	paramrange=nothing)
-	using Metrics
 	print("Predicting on test data...")
     # Extract relevant coefficients
     α = model[:α]  # Intercept
@@ -229,7 +252,6 @@ function predict_and_compute_stats_v2(model,
     # Ensure that the dimensions are consistent
     @assert(size(X_test, 2) == size(β, 2))
     @assert(size(X_test, 1) == size(test_data, 1))
-    
 	predictions = zeros(size(X_test,1), size(α,1))
 	for i in eachindex(α)
 		predictions[:,i] = α[i] .+ (X_test * β[i, :].data)
@@ -248,33 +270,49 @@ function predict_and_compute_stats_v2(model,
 	ss_tot = vec(sum(ts, dims=1))
 	r2 = 1 .- (ss_res ./ ss_tot)
 	# Accuracy
-	binary_preds = round.(predictions)
+	binary_preds = Int64.(round.(predictions))
+	true_values = ones(Int64,size(binary_preds)) .* Int64.(round.(true_values));
 	accuracy = vec(mean(binary_preds .== true_values, dims=1))
-	precision = vec(precision(binary_preds, true_values))
-	recall = vec(recall(binary_preds, true_values))
-	f1_score = 2 .* ((precision .* recall) ./ (precision .+ recall))
+	bp = binary_preds[:,1]
+	tv = true_values[:,1]
+	prec = zeros(size(binary_preds,2))
+	rec = zeros(size(binary_preds,2))
+	@showprogress "prec and recall" for (i, (bp, tv)) in enumerate(zip(eachcol(binary_preds), eachcol(true_values)))
+		prec[i] = skm.precision_score(bp, tv, average="weighted")
+		rec[i] = skm.recall_score(bp, tv, average="weighted")
+	end
+	f1_score = 2 .* ((prec .* rec) ./ (prec.+ rec))
+	# binarize = tv->skp.label_binarize(reshape(tv,length(tv),1), classes=unique(tv))
+	# roc_auc = [skm.roc_auc_score(binarize(bp), binarize(tv), average="weighted") for (bp, tv) in zip(eachcol(binary_preds), eachcol(true_values))]
 	# MSE
 	mse = vec(mean(residuals .^ 2, dims=1))
 	print("Accuracy: ", mean(accuracy))
 	print("R2: ", mean(r2))
 	print("MSE: ", mean(mse))
-    return (;accuracy, r2, mse, predictions, precision, recall, f1_score)
+    return (;accuracy, r2, mse, predictions, prec, rec, f1_score)
 end
 
-stat_dict = Dict{Tuple{String, String, String}, Dict{String, Any}}()
-predictions_df = DataFrame(animal = String[], behavior = String[], time = Float64[], actual = Float64[], predicted = Float64[], n_sample = Int[],
-	accuracy = Float64[], r2 = Float64[], mse = Float64[], paramset = String[])
 prog = Progress(length(Iterators.product(animals, behavior_names)))
+animal = first(animals)
 @showprogress "animal" for animal in animals
 	data = get_dataset(animal)
 	@unpack U, V, R, Ru, uv_time, spikeRateMatrix, behavior_dict, behavior_names, df_R, df_Ru = data
+	behavior = first(behavior_names)
 	@showprogress "testing behaviors" for behavior in behavior_names
-		display(behavior)
 		# Load data
-		if (animal,behavior) ∈ keys(stat_dict) || (animal,behavior) ∉ keys(coeffs_dict)
+		if (animal,behavior) ∉ keys(coeffs_dict) || 
+			(animal,behavior) ∉ keys(models_dict)  ||
+			(animal,behavior) ∉ keys(inds_dict)
+			@warn "Skipping $(animal) $(behavior)"
+			if (animal,behavior) ∉ keys(models_dict)
+				@warn "Skipping $(animal) $(behavior)"
+			end
 			next!(prog)
 			continue
 		end
+		@info "engaging with $(animal) $(behavior)"
+		# sleep(1)
+		@infiltrate
 		inds   = inds_dict[animal,behavior]
 		model     = models_dict[animal,behavior]
 		predictors = Symbol.(vcat(names(df_R), names(df_Ru)))
@@ -284,83 +322,59 @@ prog = Progress(length(Iterators.product(animals, behavior_names)))
 		# Filter the dataframe to only include the test set
 		df_test = df[test_indices, :]
 		# Predict and compute stats
-		begin
-			@time accuracy, r2, mse, predictions = predict_and_compute_stats_v2(model, df_test, predictors)
+		@showprogress "paramset" for paramset in ["R", "Ru", "all"]
+			if (animal,behavior,paramset) ∈ keys(stat_dict)
+				next!(prog)
+				println("Skipping $(animal) $(behavior) $(paramset)")
+				continue
+			end
+			@info "engaging with $(animal) $(behavior) $(paramset)"
+			propnames = if paramset == "R"
+				propertynames(df_R)
+			elseif paramset == "Ru"
+				propertynames(df_Ru)
+			else
+				predictors
+			end
+			@time dat = predict_and_compute_stats_v2(model, df_test, propnames; paramrange= 1:length(propnames))
+			@unpack accuracy, r2, mse, predictions, prec, rec, f1_score = dat
 			predictions = vec(mean(predictions, dims=2))
 			# Store the statistics into stat_dict
-			stat_dict[(animal, behavior, "all")] = Dict(
-				"Accuracy"=>accuracy, 
-				"R2"=>r2,
-				"MSE" => mse)
+			stat_dict[(animal, behavior, paramset)] = Dict(
+				"Accuracy"=>dat.accuracy, 
+				"R2"=>dat.r2,
+				"MSE" => dat.mse,
+				"Prec"=>dat.prec,
+				"Rec"=>dat.rec,
+				"F1_score"=>dat.f1_score)
 			# Store the predictions into predictions_df
 			pred_df = DataFrame(
 				animal = repeat([animal], length(test_indices)),
 				behavior = repeat([behavior], length(test_indices)),
 				time = uv_time[test_indices],
 				actual = df_test[:, :Behavior],
-				predicted = predictions,
+				predicted = vec(mean(dat.predictions, dims=2)),
 				n_sample = repeat([length(test_indices)], length(test_indices)),
-				accuracy = repeat([mean(accuracy)], length(test_indices)),
-			r2 = repeat([mean(r2)], length(test_indices)),
-				mse = repeat([mean(mse)], length(test_indices)),
+				accuracy = repeat([mean(dat.accuracy)], length(test_indices)),
+				r2 = repeat([mean(dat.r2)], length(test_indices)),
+				mse = repeat([mean(dat.mse)], length(test_indices)),
+				precision = repeat([mean(dat.prec)], length(test_indices)),
+				recall = repeat([mean(dat.rec)], length(test_indices)),
+				f1_score = repeat([mean(dat.f1_score)], length(test_indices)),
 				paramset = repeat(["all"], length(test_indices))
 			)
 			append!(predictions_df, pred_df)
 		end
-		# For R variables
-		begin
-			@time accuracy, r2, mse, predictions = predict_and_compute_stats_v2(model, df_test, propertynames(df_R);paramrange= 1:size(df_R,2))
-			predictions = vec(mean(predictions, dims=2))
-			# Store the statistics into stat_dict
-			stat_dict[(animal, behavior, "R")] = Dict(
-				"Accuracy"=>accuracy, 
-				"R2"=>r2,
-				"MSE" => mse)
-			# Store the predictions into predictions_df
-			pred_df = DataFrame(
-				animal = repeat([animal], length(test_indices)),
-				behavior = repeat([behavior], length(test_indices)),
-				time = uv_time[test_indices],
-				actual = df_test[:, :Behavior],
-				predicted = predictions,
-				n_sample = repeat([length(test_indices)], length(test_indices)),
-				accuracy = repeat([mean(accuracy)], length(test_indices)),
-			r2 = repeat([mean(r2)], length(test_indices)),
-			mse = repeat([mean(mse)], length(test_indices)),
-				paramset = repeat(["R"], length(test_indices))
-			)
-			append!(predictions_df, pred_df)
-		end
-		# For Ru variables
-		begin
-			@time accuracy, r2, mse, predictions = predict_and_compute_stats_v2(model, df_test, propertynames(df_Ru);paramrange= 1:size(df_Ru,2))
-			predictions = vec(mean(predictions, dims=2))
-			# Store the statistics into stat_dict
-			stat_dict[(animal, behavior, "Ru")] = Dict(
-				"Accuracy"=>accuracy, 
-				"R2"=>r2,
-				"MSE" => mse)
-			# Store the predictions into predictions_df
-			pred_df = DataFrame(
-				animal = repeat([animal], length(test_indices)),
-				behavior = repeat([behavior], length(test_indices)),
-				time = uv_time[test_indices],
-				actual = df_test[:, :Behavior],
-				predicted = predictions,
-				n_sample = repeat([length(test_indices)], length(test_indices)),
-				accuracy = repeat([mean(accuracy)], length(test_indices)),
-			r2 = repeat([mean(r2)], length(test_indices)),
-			mse = repeat([mean(mse)], length(test_indices)),
-				paramset = repeat(["Ru"], length(test_indices))
-			)
-			append!(predictions_df, pred_df)
-		end
-		# Progress
-		next!(prog)
 	end
 	serialize(joinpath(folder, "stat_dict.jls"), stat_dict)
 	serialize(joinpath(folder, "predictions_df.jls"), predictions_df)
 end
+
+
+#  . .     ,---.|         |    
+# -+-+-    |---'|    ,---.|--- 
+# -+-+-    |    |    |   ||    
+#  ` `     `    `---'`---'`---'
 
 
 """
@@ -439,162 +453,84 @@ function stat_dict_to_dataframe(data::Dict{Tuple{String, String, String}, Dict{S
     df = DataFrame(all_rows)
     return df
 end
+                             
 
 # Usage
 stat_df = stat_dict_to_dataframe(stat_dict, true)  # Set true to explode the vectors
 
-function generate_heatmap(df::DataFrame, metric::Symbol; type=nothing, diff_type=nothing, kwargs...)
-    
-    # If diff_type is provided, ensure type is also provided
-    if diff_type !== nothing && type === nothing
-        throw(ArgumentError("If diff_type is provided, type must also be specified"))
-    end
-    
-    # Create matrix for the heatmap
-    matrix_data = Matrix{Float64}(undef, length(unique(df.Animal)), length(unique(df.Behavior)))
-    
-    for (i, animal) in enumerate(unique(df.Animal))
-        for (j, behavior) in enumerate(unique(df.Behavior))
+                                                          
+#  . .     ,---.          ,---.         |         |         
+# -+-+-    |    ,---.,---.|__.     ,---.|    ,---.|--- ,---.
+# -+-+-    |    |   ||---'|        |   ||    |   ||    `---.
+#  ` `     `---'`---'`---'`        |---'`---'`---'`---'`---'
+#                                  |                        
+
+# CONSTRUCT A DATAFRAME OF COEFFICIENTS
+function extract_coefficients(models_dict::Dict, predictors::Vector{String})
+    # Initialize an empty DataFrame
+    coeffs_df = DataFrame(
+        Animal = String[],
+        Behavior = String[],
+        Coefficient = String[],
+        SampleNum = Int[],
+        Value = Float64[]
+    )
+    # Iterate over the models_dict
+    for ((animal, behavior), model) in models_dict
+        # Extract α (intercept) samples
+        α_samples = model[:α].data
+        for (sample_num, α_val) in enumerate(α_samples)
+            push!(coeffs_df, (animal, behavior, "Intercept", sample_num, α_val))
+        end
+        # Extract β (coefficients) samples
+		for (i,predictor) in enumerate(predictors)
+            # Extract the predictor's samples
+            # predictor_name = "β[$predictor]"
+            predictor_name = "β[$i]"
+            β_samples = model[predictor_name].data
             
-            # If diff_type is not provided, use the original type behavior
-            if diff_type === nothing
-                subset = type === nothing ? df[(df.Animal .== animal) .& (df.Behavior .== behavior), :] : 
-                                             filter(row -> row.Type == type, df[(df.Animal .== animal) .& (df.Behavior .== behavior), :])
-                matrix_data[i, j] = mean(subset[:, metric])
-                
-            # If diff_type is provided, compute the difference
-            else
-                subset_type = filter(row -> row.Type == type, df[(df.Animal .== animal) .& (df.Behavior .== behavior), :])
-                subset_diff_type = filter(row -> row.Type == diff_type, df[(df.Animal .== animal) .& (df.Behavior .== behavior), :])
-                
-                matrix_data[i, j] = mean(subset_type[:, metric]) - mean(subset_diff_type[:, metric])
+            for (sample_num, β_val) in enumerate(β_samples)
+                push!(coeffs_df, (animal, behavior, predictor, sample_num, β_val))
             end
         end
     end
-    
-    title_str = diff_type === nothing ? "Heatmap of Mean $metric" : "Heatmap of Difference in $metric between $type and $diff_type"
-    
-    defaults = (;xlabel="Animal", ylabel="Behavior", title=title_str, color=:viridis, aspect_ratio=:auto)
-    kw = merge(defaults, kwargs)
-    
-    # Generate heatmap
-    heatmap(unique(df.Animal), unique(df.Behavior), matrix_data'; kw...)
-end
-generate_heatmap(stat_df, :Accuracy, color=:balance)
-savefig(joinpath(plotfolder, "heatmap_Accuracy.png"))
-savefig(joinpath(plotfolder, "heatmap_Accuracy.pdf"))
-generate_heatmap(stat_df, :R2, color=:balance, clim=(-1,1))
-savefig(joinpath(plotfolder, "heatmap_R2.png"))
-savefig(joinpath(plotfolder, "heatmap_R2.pdf"))
-sort!(stat_df, [:Type,:Behavior,:Animal])
-plot(generate_heatmap(stat_df, :Accuracy, type="R", color=:balance, title="CommSub"),
-	generate_heatmap(stat_df, :Accuracy, type="Ru", color=:balance, title="Ortthogonal Commsub"), size=(1000,500))
-savefig(joinpath(plotfolder, "heatmap_Accuracy_R_Ru.png"))
-savefig(joinpath(plotfolder, "heatmap_Accuracy_R_Ru.pdf"))
-plot(generate_heatmap(stat_df, :R2, type="R", color=:balance, title="CommSub"),
-	generate_heatmap(stat_df, :R2, type="Ru", color=:balance, title="Orthogonal Commsub"), size=(1000,500), clim=(-0.5, 0.5))
-savefig(joinpath(plotfolder, "heatmap_R2_R_Ru.png"))
-savefig(joinpath(plotfolder, "heatmap_R2_R_Ru.pdf"))
-plot(
-generate_heatmap(stat_df, :Accuracy, type="R", diff_type="Ru", title="ComSub-Orthogonal", color=:Reds),
-	generate_heatmap(stat_df, :Accuracy, type="all", diff_type="R", title="All-R: Orthog Improve Commsub", color=:Purples, clim=(0,0.125)),
-size=(1000,500), 
-)
-savefig(joinpath(plotfolder, "heatmap_Accuracy_R_Ru_diff.png"))
-savefig(joinpath(plotfolder, "heatmap_Accuracy_R_Ru_diff.pdf"))
-
-summ = combine(groupby(stat_df, [:Behavior, :Type]),
-	:Accuracy => mean,
-	:R2 => mean,
-	:MSE => mean,
-	:Accuracy => (x -> quantile(x, 0.025)) => :Accuracy_lower,
-	:Accuracy => (x -> quantile(x, 0.975)) => :Accuracy_upper,
-	:R2 => (x -> (quantile(x, 0.025))) => :R2_lower,
-	:R2 => (x -> quantile(x, 0.975)) => :R2_upper,
-	:MSE => (x -> quantile(x, 0.025)) => :MSE_lower,
-	:MSE => (x -> quantile(x, 0.975)) => :MSE_upper,
-	
-)
-
-function generate_barplot(df::DataFrame)
-    # Create a grouped bar plot for each metric
-    p1 = groupedbar(df.Behavior, df[:, :Accuracy_mean], group=df.Type, 
-                    yerr=(df.Accuracy_mean .- df.Accuracy_lower, df.Accuracy_upper .- df.Accuracy_mean), 
-                    title="Accuracy", legend=:topright)
-	hline!([0], color=:black, linestyle=:dash)
-    p2 = groupedbar(df.Behavior, df[:, :R2_mean], group=df.Type, 
-                    yerr=(df.R2_mean .- df.R2_lower, df.R2_upper.-df.R2_mean), 
-		title="R2", legend=:topright, ylim=(-0.5,0.75))
-	hline!([0], color=:black, linestyle=:dash)
-    # Combine the subplots
-	plot(p1, p2, layout=(2, 1), size=0.8.*(1000,800), bbox=(0.5, 0.8))
-end
-generate_barplot(summ)
-savefig(joinpath(plotfolder, "barplot_stats_by_behavior_type.png"))
-savefig(joinpath(plotfolder, "barplot_stats_by_behavior_type.pdf"))
-
-summ = combine(groupby(stat_df, [:Behavior, :Type, :Animal]),
-	:Accuracy => mean,
-	:R2 => mean,
-	:MSE => mean,
-	:Accuracy => (x -> quantile(x, 0.025)) => :Accuracy_lower,
-	:Accuracy => (x -> quantile(x, 0.975)) => :Accuracy_upper,
-	:R2 => (x -> (quantile(x, 0.025))) => :R2_lower,
-	:R2 => (x -> quantile(x, 0.975)) => :R2_upper,
-	:MSE => (x -> quantile(x, 0.025)) => :MSE_lower,
-	:MSE => (x -> quantile(x, 0.975)) => :MSE_upper,
-	
-)
-
-
-function generate_animal_barplots(df::DataFrame)
-    # Get unique animals
-    animals = unique(df.Animal)
-    plots = []
-    for animal in animals
-        # Filter dataframe by animal
-        df_animal = filter(row -> row.Animal == animal, df)
-        
-        # Create subplots for the current animal
-        p1 = groupedbar(df_animal.Behavior, df_animal[:, :Accuracy_mean], group=df_animal.Type,
-                        yerr=(df_animal.Accuracy_mean .- df_animal.Accuracy_lower, df_animal.Accuracy_upper .- df_animal.Accuracy_mean),
-                        title="Accuracy", legend=false,
-						ylims=(0,1))
-        
-        p2 = groupedbar(df_animal.Behavior, df_animal[:, :R2_mean], group=df_animal.Type,
-                        yerr=(df_animal.R2_mean .- df_animal.R2_lower, df_animal.R2_upper .- df_animal.R2_mean),
-                        title="R2", legend=false, ylim=(-0.1,0.4))
-        
-        
-        # Combine the subplots for the current animal
-        animal_plot = plot(p1, p2, layout=(1, 2), title=animal)
-        push!(plots, animal_plot)
+	# Split the Coefficient column strings and create new columns
+	coeffs_df[!, "Property1"] = Vector{Union{Missing,String}}(missing, size(coeffs_df, 1))
+	coeffs_df[!, "Property2"] = Vector{Union{Missing,String}}(missing, size(coeffs_df, 1))
+    for i in 1:size(coeffs_df, 1)
+        # If the coefficient name is not "Intercept"
+        if coeffs_df[i, :Coefficient] != "Intercept"
+            properties = split(coeffs_df[i, :Coefficient], "_")
+            coeffs_df[i, :Property1] = properties[1]
+            coeffs_df[i, :Property2] = properties[2]  # Extend this as needed for more properties
+        else
+            coeffs_df[i, :Property1] = missing
+            coeffs_df[i, :Property2] = missing  # Extend this as needed for more properties
+        end
     end
-    
-    # Combine all the plots
-	final_plot = plot(plots..., layout=(length(animals), 1), size=1.1.*(1100, 150 * length(animals)), bbox=(0.2, 0.99), xrotation=15, fontsize=14)
-    return final_plot
-end
-generate_animal_barplots(summ)
-savefig(joinpath(plotfolder, "barplot_stats_by_behavior_type_animal.png"))
-savefig(joinpath(plotfolder, "barplot_stats_by_behavior_type_animal.pdf"))
-
-plots = Dict()
-group = first(groupby(stat_df, [:Behavior, :Type, :Animal]))
-for group in groupby(stat_df,  [:Behavior, :Type, :Animal])
-	if isempty(group)
-		continue
-	end
-	try
-		p=plot(
-			histogram(group.Accuracy, title="$(group.Animal[1]) $(group.Behavior[1]) $(group.Type[1])", xlabel="Accuracy", bins=25),
-			histogram(group.R2, title="$(group.Animal[1]) $(group.Behavior[1]) $(group.Type[1])", xlabel="R2"),
-		)
-		push!(plots, (group.Behavior[1], group.Type[1], group.Animal[1]) => p)
-		savefig(joinpath(plotfolder, "stat_$(group.Animal[1])_$(group.Behavior[1])_$(group.Type[1]).png"))
-		savefig(joinpath(plotfolder, "stat_$(group.Animal[1])_$(group.Behavior[1])_$(group.Type[1]).pdf"))
-	catch ME
-	end
+    return coeffs_df
 end
 
+animal = first(animals)
+coefs_df = DataFrame()
+@showprogress "animal coef dict" for animal in animals
+	data = get_dataset(animal)
+	@unpack U, V, R, Ru, uv_time, spikeRateMatrix, behavior_dict, behavior_names, df_R, df_Ru = data
+	predictors = Symbol.(vcat(names(df_R), names(df_Ru)))
+	c_df = extract_coefficients(models_dict, string.(predictors))
+	append!(coefs_df, c_df, cols=:union)
+	serialize(joinpath(folder, "coefs_df.jls"), coefs_df)
+end
+coefs_df.ValueAbs = abs.(coefs_df.Value)
+coefs_df.orthostate = map(x->
+begin
+	if ismissing(x)
+		missing
+	elseif x == "R"
+		"Aligned"
+	elseif x=="Ru"
+		"Orthogonal"
+	end
+end, coefs_df.Property1)
+serialize(joinpath(folder, "coefs_df.jls"), coefs_df)
 

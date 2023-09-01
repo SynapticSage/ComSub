@@ -131,6 +131,7 @@ df = df.sort_values(['time','animal']).groupby('animal').apply(label_epochs).res
 if not name.endswith("_epoch"):
     name = name + "_epoch"
 df.groupby(['animal','epoch']).time.mean().unstack()
+df = downcast_dataframe(df)
 
 # ----------------------------------------------------
 # MAKE SOME VARIABLES
@@ -197,16 +198,22 @@ if append.endswith("onlyrcols"):
 
 # Rerun the bootstrap for each bin and each column, for each trajectory bound
 print("Running bootstrap with {} bins and {} bootstrap samples...".format(n_bins, n_bootstrap_samples))
-for trajbound in tqdm([0, 1], desc="trajbound", total=2):
+# for trajbound in tqdm([0, 1], desc="trajbound", total=2):
+from concurrent.futures import ProcessPoolExecutor
+import concurrent
+def run_bootstrap_for_trajbound(trajbound, df, columns_to_bootstrap, n_bootstrap_samples):
     # Filter the data based on trajbound
     data_trajbound = df.query('trajbound == @trajbound')
+    print("-"*80)
+    print("unique data_trajbound animals", data_trajbound["animal"].unique())
+    print("-"*80)
     # Loop over the unique combinations of column, trajbound, and lindist_bin
     iters = list(itertools.product(columns_to_bootstrap, 
                                    data_trajbound["lindist_bin"].unique().categories,
                                    data_trajbound["epoch"].unique()))
-    bootstrap_means_combined_trajbound = []
+    bootstrap_means_combined_trajbound = np.empty(len(iters), dtype=pd.DataFrame)
     gc.collect()
-    for (column, bin_label, epoch) in tqdm(iters, desc="column, lindist_bin", total=len(iters)):
+    for idatum, (column, bin_label, epoch) in tqdm(enumerate(iters), desc="column, lindist_bin", total=len(iters)):
         if check_existing:
             print("Checking for existing entries...")
             existing_entries = bootstrap_means_combined.query('column == @column & lindist_bin == @bin_label & epoch == @epoch').shape[0]
@@ -217,13 +224,16 @@ for trajbound in tqdm([0, 1], desc="trajbound", total=2):
         data = data_trajbound.loc[(data_trajbound["lindist_bin"] == bin_label) &
                                   (data_trajbound["epoch"] == epoch),
                                   ["animal",column]]
+        print("."*80)
+        print("unique anim, data:", data["animal"].unique())
+        print("."*80)
         # data = data_trajbound.query('lindist_bin == @bin_label & epoch == @epoch')[["animal", column]]
         
         # Find the minimum number of points available for each animal
         min_points_per_animal = data.groupby("animal").size().min()
         
         # Generate bootstrap samples
-        bms = []
+        bms = np.empty(n_bootstrap_samples, dtype=dict)
         for iboot in range(n_bootstrap_samples):
             # Initialize an empty list to hold the data for this bootstrap sample
             bootstrap_sample = []
@@ -237,7 +247,7 @@ for trajbound in tqdm([0, 1], desc="trajbound", total=2):
                 bootstrap_var  = sample.var(numeric_only=True).astype(float)
                 
                 # Add the result to the DataFrame
-                bms.append({
+                bms[iboot] = {
                     "iboot": iboot,
                     "lindist_bin": bin_label,
                     "column": column,
@@ -246,19 +256,44 @@ for trajbound in tqdm([0, 1], desc="trajbound", total=2):
                     "trajbound": trajbound,
                     "animal": animal,
                     "epoch": epoch
-                })
-        bms = pd.DataFrame(bms)
-        gc.collect()
-        bootstrap_means_combined_trajbound.append(bms)
+                }
+        bms = pd.DataFrame(list(bms))
+        bms = bms.astype({"iboot": np.int16, "lindist_bin": object, "column": str, "bootstrap_mean": np.float32, "bootstrap_var": np.float32, "trajbound": np.int8, "animal": str, "epoch": np.int8})
+        bootstrap_means_combined_trajbound[idatum] = bms
     bootstrap_means_combined.append(downcast_dataframe(pd.concat(bootstrap_means_combined_trajbound, axis=0)))
+    return bootstrap_means_combined_trajbound
+
+if __name__ == '__main__':
+    with ProcessPoolExecutor(max_workers=2) as executor:
+        future_to_trajbound = {executor.submit(run_bootstrap_for_trajbound, trajbound, df, columns_to_bootstrap, n_bootstrap_samples): trajbound for trajbound in [0, 1]}
+        
+        for future in concurrent.futures.as_completed(future_to_trajbound):
+            trajbound = future_to_trajbound[future]
+            try:
+                bootstrap_means_combined_trajbound = future.result()
+                # Append the resulting DataFrame to the main DataFrame
+                bootstrap_means_combined.append(bootstrap_means_combined_trajbound)
+            except Exception as exc:
+                print(f'The bootstrap for trajbound={trajbound} generated an exception: {exc}')
 
 # Convert the list of dictionaries to a DataFrame
 print("Converting to DataFrame...")
+for i in range(len(bootstrap_means_combined)):
+    bootstrap_means_combined[i] = pd.concat(bootstrap_means_combined[i], axis=0)
 bootstrap_means_combined = pd.concat(bootstrap_means_combined, axis=0)
 # Create a new lindist_bin_ind column
 print("Creating lindist_bin_ind column...")
 bootstrap_means_combined["lindist_bin_ind"] = bootstrap_means_combined["lindist_bin"].apply(lambda x: x.right)
 bootstrap_means_combined.loc[:,'bootstrap_mean'] = bootstrap_means_combined.bootstrap_mean.astype(float)
+# Add the lindist_bin_mid column back to the DataFrame
+print("Adding lindist_bin_mid column...")
+bootstrap_means_combined["lindist_bin_mid"] = \
+    bootstrap_means_combined["lindist_bin"].apply(lambda x: x.mid)
+bootstrap_means_combined["lindist_bin_lower"] = \
+    bootstrap_means_combined["lindist_bin"].apply(lambda x: x.left)
+bootstrap_means_combined["lindist_bin_upper"] = \
+    bootstrap_means_combined["lindist_bin"].apply(lambda x: x.right)
+bootstrap_means_combined.drop(columns=["lindist_bin"], inplace=True)
 print("Saving to parquet...")
 bootstrap_means_combined.to_parquet(os.path.join(folder, f'{name}_bootstrap{append}.parquet'), index=False)
 bootstrap_means_combined = pd.read_parquet(os.path.join(folder, f'{name}_bootstrap{append}.parquet'))
@@ -280,6 +315,12 @@ bootstrap_means_combined["bootstrap_meanvar_smooth"] = bootstrap_means_combined.
     ["animal","epoch","column", "trajbound", "iboot"]
 )["bootstrap_meanvar_smooth"].transform(lambda x: x.interpolate())
 
+
+# nan infinities
+print("nan infinities...")
+bootstrap_means_combined["bootstrap_mean"] = bootstrap_means_combined["bootstrap_mean"].replace([np.inf, -np.inf], np.nan)
+bootstrap_means_combined["bootstrap_mean_smooth"] = bootstrap_means_combined["bootstrap_mean_smooth"].replace([np.inf, -np.inf], np.nan)
+bootstrap_means_combined["bootstrap_meanvar_smooth"] = bootstrap_means_combined["bootstrap_meanvar_smooth"].replace([np.inf, -np.inf], np.nan)
       
 # ----------------------------------------------------
 # Normalize the bootstrap_mean values
@@ -306,19 +347,14 @@ for column, animal in tqdm(iters, desc="feature engineering", total=len(columns_
     bootstrap_means_combined.loc[(bootstrap_means_combined["column"] == column) & \
             (bootstrap_means_combined["animal"] == animal), "bootstrap_mean_smooth"] = scaled_data_smooth
 # bootstrap_means_combined.head()
+
+# bootstrap_means_combined.head()
+# FIXME: PROBLEM WITH EPOCH CUTTING, comment out when fix
 bootstrap_means_combined.to_parquet(
         os.path.join(folder, f'{name}_bootstrap_normalized{append}_{str(scaler).replace("()","").lower()}.parquet'), index=False)
 bootstrap_means_combined = pd.read_parquet(
         os.path.join(folder, f'{name}_bootstrap_normalized{append}_{str(scaler).replace("()","").lower()}.parquet'))
-
-# Add the lindist_bin_mid column back to the DataFrame
-print("Adding lindist_bin_mid column...")
-bootstrap_means_combined["lindist_bin_mid"] = \
-    bootstrap_means_combined["lindist_bin"].apply(lambda x: x.mid)
-# FIXME: PROBLEM WITH EPOCH CUTTING, comment out when fix
 bootstrap_means_combined.query('animal !="ER1"', inplace=True)
-bootstrap_means_combined.to_parquet(
-        os.path.join(folder, f'{name}_bootstrap_normalized{append}_{str(scaler).replace("()","").lower()}.parquet'), index=False)
 
 
 print("Balancing animals...")
