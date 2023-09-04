@@ -9,6 +9,7 @@ from tqdm import tqdm
 tqdm.pandas()
 
 
+match_mode = False
 intermediate = "midpattern=true"
 figfolder = f"/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/eventuv_python/"
 origin=f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/eventuv.parquet'
@@ -25,14 +26,14 @@ def prep_uv_melt(df_clean):
     df_u = df_clean.pivot_table(index=index,
                                 columns='uv_components', 
                                 values='event_u_values', 
-                                aggfunc='first').reset_index()
+                                aggfunc='mean').reset_index()
     # Renaming columns for clarity
     df_u.columns = [str(col) + '_u' if isinstance(col, float) else col for col in df_u.columns]
     # Pivoting the data to get v_values for each uv_component
     df_v = df_clean.pivot_table(index=index,
                                 columns='uv_components', 
                                 values='event_v_values', 
-                                aggfunc='first').reset_index()
+                                aggfunc='mean').reset_index()
     # Renaming columns for clarity
     df_v.columns = [str(col) + '_v' if isinstance(col, float) else col for col in df_v.columns]
     # Merging the two dataframes to get the final matrix
@@ -42,7 +43,33 @@ def prep_uv_melt(df_clean):
     matrix.head()
     # drop all rows with NaN
     matrix = matrix.dropna()
-
+    #
+    # df_on = df_clean.pivot_table(index=index,
+    #                             columns='uv_components', 
+    #                             values='projection_score',
+    #                             aggfunc='mean').reset_index()
+    #
+    # df_off = df_clean.pivot_table(index=index,
+    #                             columns='uv_components', 
+    #                             values='perpendicular_score',
+    #                             aggfunc='mean').reset_index()
+    #
+    # df_on_abs = df_clean.pivot_table(index=index,
+    #                             columns='uv_components', 
+    #                             values='abs_projection_score',
+    #                             aggfunc='mean').reset_index()
+    # df_off_a1bs = df_clean.pivot_table(index=index,
+    #                             columns='uv_components', 
+    #                             values='abs_perpendicular_score',
+    #                             aggfunc='mean').reset_index()
+    #
+    # import pdb; pdb.set_trace()
+    #
+    # df_matrix = df_matrix.merge(df_on, on=index)
+    # df_matrix = df_matrix.merge(df_off, on=index)
+    # df_matrix = df_matrix.merge(df_on_abs, on=index)
+    # df_matrix = df_matrix.merge(df_off_a1bs, on=index)
+    # df_matrix = df_matrix.dropna()
 
     df_matrix.set_index(index, inplace=True)
     return df_matrix
@@ -187,12 +214,7 @@ df_clean['on_commsub_mag'] = df_clean['on_commsub'] * df_clean['distance_to_orig
 df_summary = df_clean.groupby(['genH', 'patterns', 'uv_components', 'animal', 'events']).mean().reset_index()
 df_clean['off_commsub_mag'] = df_clean['distance_to_line'].abs()
 df_clean['on_over_off'] = df_clean['on_commsub_mag'] / df_clean['distance_to_origin'].abs()
-
-
-# Create 'highlow' column based on 'patterns'
-if df.patterns.max() == 6:
-    df_clean['highlow'] = df_clean['patterns'].apply(lambda x: 'high' if x in [1, 2, 3] else 'low')
-elif df.patterns.max() == 9:
+f.patterns.max() == 9:
     mapping = {1:'high', 2:'high', 3:'high', 4:'low', 5:'low', 6:'low', 7:'mid', 8:'mid', 9:'mid'}
     df_clean['highlow'] = df_clean['patterns'].map(mapping)
 # Create a composite column combining 'genH' and 'highlow'
@@ -229,6 +251,32 @@ df_clean['abs_perpendicular_score'] = df_clean['perpendicular_score'].abs()
 df_clean['proj_over_perp'] = df_clean['abs_projection_score'] / df_clean['abs_perpendicular_score']
 df_clean['abs_proj_over_perp'] = df_clean['abs_projection_score'] / df_clean['abs_perpendicular_score']
 index = ['animal','genH', 'genH_highlow', 'highlow', 'patterns', 'event_time']
+
+
+# Subset
+df_clean = df_clean.query('pattern_cca1 == 2') # 1 is hpchpc
+if match_mode:
+    tmp = []
+    for i in range(1, int(df_clean.patterns.max())):
+        tmp.append(df_clean.query(f'pattern_cca2 == {i} & patterns == {i}'))
+    df_clean = pd.concat(tmp)
+else:
+    df_clean = df_clean.query(f'pattern_cca2 == {df_clean.patterns.max()}')
+
+
+df_matrix = prep_uv_melt(df_clean)
+# df_matrix_projected = prep_uv_melt(df_clean, project=True)
+df_matrix.dropna(inplace=True)
+for i in range(1, 6):
+    i = float(i)
+    df_matrix[f"r_{i}"] = (df_matrix[f"{i}_u"] + df_matrix[f"{i}_v"]) / np.sqrt(2)
+    df_matrix[f"p_{i}"] = (df_matrix[f"{i}_u"] - df_matrix[f"{i}_v"]) / np.sqrt(2)
+    df_matrix[f"r_{i}_abs"] = df_matrix[f"r_{i}"].abs()
+    df_matrix[f"p_{i}_abs"] = df_matrix[f"p_{i}"].abs()
+    df_matrix[f"r_over_p_{i}"] = df_matrix[f"r_{i}_abs"] / df_matrix[f"p_{i}_abs"]
+    df_matrix[f"u_{i}"] = df_matrix[f"{i}_u"]
+    df_matrix[f"v_{i}"] = df_matrix[f"{i}_v"]
+
 
 # Import the ipython run magic as a function
 import glob

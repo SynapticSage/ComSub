@@ -1,8 +1,11 @@
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import numpy as np
 import os
+import mplcyberpunk
+plt.style.use("cyberpunk")
 
 def perform_umap(df_matrix:pd.DataFrame, n_neighbors=15, min_dist=0.1,
                  n_components=2, metric='euclidean'):
@@ -28,9 +31,6 @@ def perform_umap(df_matrix:pd.DataFrame, n_neighbors=15, min_dist=0.1,
                         index=df_matrix.index)
 
 print("Preping data...")
-df_matrix = prep_uv_melt(df_clean)
-df_matrix_projected = prep_uv_melt(df_clean, project=True)
-df_matrix.dropna(inplace=True)
 um =  perform_umap(df_matrix)
 um = um.reset_index()
 # um_anim = perform_umap(df_matrix_projected)
@@ -136,7 +136,8 @@ plt.savefig(os.path.join(figfolder,'umap_3d_hue=genH_highlow_col=animal.pdf'), d
 
 plt.close('all')
 plot_umap_3d(um, hue='genH_highlow', row="patterns", col="animal",
-             sample=10_000, alpha=0.1)
+             sample=10_000, alpha=1)
+mplcyberpunk.make_scatter_glow()
 plt.savefig(os.path.join(figfolder,'umap_3d_hue=genH_highlow_row=patterns_col=animal.png'), dpi=300)
 plt.savefig(os.path.join(figfolder,'umap_3d_hue=genH_highlow_row=patterns_col=animal.pdf'), dpi=300)
 

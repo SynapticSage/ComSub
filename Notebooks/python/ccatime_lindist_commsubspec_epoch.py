@@ -213,6 +213,8 @@ def run_bootstrap_for_trajbound(trajbound, df, columns_to_bootstrap, n_bootstrap
                                    data_trajbound["epoch"].unique()))
     bootstrap_means_combined_trajbound = np.empty(len(iters), dtype=pd.DataFrame)
     gc.collect()
+    uanimals = data_trajbound["animal"].unique()
+    nanimals = len(uanimals)
     for idatum, (column, bin_label, epoch) in tqdm(enumerate(iters), desc="column, lindist_bin", total=len(iters)):
         if check_existing:
             print("Checking for existing entries...")
@@ -233,13 +235,13 @@ def run_bootstrap_for_trajbound(trajbound, df, columns_to_bootstrap, n_bootstrap
         min_points_per_animal = data.groupby("animal").size().min()
         
         # Generate bootstrap samples
-        bms = np.empty(n_bootstrap_samples, dtype=dict)
+        bms = np.empty((n_bootstrap_samples, nanimals), dtype=dict)
         for iboot in range(n_bootstrap_samples):
             # Initialize an empty list to hold the data for this bootstrap sample
             bootstrap_sample = []
             
             # Sample the minimum number of points from each animal's data
-            for animal, animal_data in data.groupby("animal"):
+            for ian, (animal, animal_data) in enumerate(data.groupby("animal")):
                 sample = (animal_data.sample(min_points_per_animal, replace=True))
                 
                 # Compute the mean of the bootstrap sample
@@ -247,7 +249,7 @@ def run_bootstrap_for_trajbound(trajbound, df, columns_to_bootstrap, n_bootstrap
                 bootstrap_var  = sample.var(numeric_only=True).astype(float)
                 
                 # Add the result to the DataFrame
-                bms[iboot] = {
+                bms[iboot,ian] = {
                     "iboot": iboot,
                     "lindist_bin": bin_label,
                     "column": column,
@@ -257,7 +259,7 @@ def run_bootstrap_for_trajbound(trajbound, df, columns_to_bootstrap, n_bootstrap
                     "animal": animal,
                     "epoch": epoch
                 }
-        bms = pd.DataFrame(list(bms))
+        bms = pd.DataFrame([b for b in bms.ravel() if b is not None])
         bms = bms.astype({"iboot": np.int16, "lindist_bin": object, "column": str, "bootstrap_mean": np.float32, "bootstrap_var": np.float32, "trajbound": np.int8, "animal": str, "epoch": np.int8})
         bootstrap_means_combined_trajbound[idatum] = bms
     bootstrap_means_combined.append(downcast_dataframe(pd.concat(bootstrap_means_combined_trajbound, axis=0)))
@@ -354,7 +356,9 @@ bootstrap_means_combined.to_parquet(
         os.path.join(folder, f'{name}_bootstrap_normalized{append}_{str(scaler).replace("()","").lower()}.parquet'), index=False)
 bootstrap_means_combined = pd.read_parquet(
         os.path.join(folder, f'{name}_bootstrap_normalized{append}_{str(scaler).replace("()","").lower()}.parquet'))
-bootstrap_means_combined.query('animal !="ER1"', inplace=True)
+
+if bootstrap_means_combined.query('animal =="ER1"').epoch.max() > 16:
+    bootstrap_means_combined.query('animal !="ER1"', inplace=True)
 
 
 print("Balancing animals...")
@@ -501,6 +505,8 @@ def plot_by_epoch(df, column, epochs, field="bootstrap_mean_smooth"):
     
     # Create a subplot
     fig, ax = plt.subplots(2,1,figsize=(10, 7))
+    for a in ax.ravel():
+        a.axhline(y=0, color="black", linestyle="dotted", label="")
     
     # Group data by epoch and plot each group
     for epoch, group in df.groupby(epochs):
@@ -536,10 +542,12 @@ def plot_by_epoch(df, column, epochs, field="bootstrap_mean_smooth"):
 
 print("Plotting by epoch")
 # Call the function
-for column in tqdm(component_fill_bases.keys(),total=len(component_fill_bases.keys())):
+for column in tqdm(animal_bootstrap_means_combined["column"].unique(), total=len(animal_bootstrap_means_combined["column"].unique())):
+    print("Plotting", column)
     plot_by_epoch(animal_bootstrap_means_combined, column, "epoch")
     plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_epoch.png"), dpi=300)
-    plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_epoch.pdf"), dpi=300)
+    plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_epoch.pdf"))
+    plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_epoch.svg"))
     # plt.close('all')
 
 # ------------------------------------------------------
@@ -560,15 +568,16 @@ def plot_by_animal(df, column, field="bootstrap_mean_smooth"):
     # Create a subplot
     fig, axes = plt.subplots(len(unique_animals), len(unique_trajbounds),
                              figsize=(10, 7 * len(unique_animals)))
+    df = df.sort_values(by="lindist_bin_mid")
 
     # Group data by animal, epoch, and trajbound and plot each group
     for animal in tqdm(unique_animals, desc="Animals", total=len(unique_animals)):
         for trajbound in unique_trajbounds:
             for epoch in unique_epochs:
                 # Subset to the data of interest
-                data = df[(df["animal"] == animal) & (df["trajbound"] == trajbound) & (df["epoch"] == epoch) & (df["column"] == column)]
+                # data = df[(df["animal"] == animal) & (df["trajbound"] == trajbound) & (df["epoch"] == epoch) & (df["column"] == column)]
+                data = df.query('animal == @animal & trajbound == @trajbound & epoch == @epoch & column == @column')
                 # Sort values for consistent plotting
-                data = data.sort_values(by="lindist_bin_mid")
                 # Plot the line for this animal, epoch, and trajbound
                 if not data.empty:
                     # sns.lineplot(
@@ -576,15 +585,24 @@ def plot_by_animal(df, column, field="bootstrap_mean_smooth"):
                     #     ax=axes[unique_animals.index(animal), unique_trajbounds.index(trajbound)],
                     #     color=epoch_color_map[epoch], label=f'Epoch {epoch}'
                     # )
+                    ax = axes[unique_animals.index(animal),
+                              unique_trajbounds.index(trajbound)]
                     plot_with_bootstrap_ci(data, "lindist_bin_mid", field,
-                                           ax=axes[unique_animals.index(animal),
-                                                   unique_trajbounds.index(trajbound)],
+                                           ax=ax,
                                            color=epoch_color_map[epoch],
                                            label=f'E{epoch}' if trajbound == 0 else '')
                     # Set title and labels
-                    axes[unique_animals.index(animal), unique_trajbounds.index(trajbound)].set_title(f'Animal {animal}, Trajbound {trajbound}')
-                    axes[unique_animals.index(animal), unique_trajbounds.index(trajbound)].set_xlabel('lindist_bin_mid')
-                    axes[unique_animals.index(animal), unique_trajbounds.index(trajbound)].set_ylabel(field)
+                    ax.set_title(f'Animal {animal}, Trajbound {trajbound}')
+                    ax.set_xlabel('lindist_bin_mid')
+                    ax.set_ylabel(field)
+                    ax.axhline(y=0, color="black", linestyle="dotted", label="")
+                else:
+                    print("No data for", animal, trajbound, epoch, column)
+        # Set ylims the same for each animal's columns
+        ylims = [ax.get_ylim() for ax in axes[unique_animals.index(animal)]]
+        ylims = [min([y[0] for y in ylims]), max([y[1] for y in ylims])]
+        for ax in axes[unique_animals.index(animal)]:
+            ax.set_ylim(ylims)
 
     # Show the plot
     plt.tight_layout()
@@ -592,15 +610,16 @@ def plot_by_animal(df, column, field="bootstrap_mean_smooth"):
 
 print("Plotting by animal")
 # The test function call has been commented out because we don't currently have access to the bootstrap_means_combined DataFrame
-for column in tqdm(component_fill_bases.keys(),total=len(component_fill_bases.keys())):
+column = columns_to_bootstrap[0]
+for column in tqdm(columns_to_bootstrap, total=len(columns_to_bootstrap)):
     plot_by_animal(bootstrap_means_combined, column)
     plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_animal.png"), dpi=300)
-    plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_animal.pdf"), dpi=300)
+    plt.savefig(os.path.join(figfolder, f"{column}_bootstrap_mean_smooth_by_animal.pdf"))
     # plt.close('all')
 
 
 # ------------------------------------------------------
-# RAW
+# -------------------RAW DF PLOTS-----------------------
 # ------------------------------------------------------
 
 def plot_property_vs_lindist(df, property_name, N=100_000):
@@ -641,7 +660,9 @@ def plot_property_vs_lindist(df, property_name, N=100_000):
         plt.legend()
         plt.grid(True)
     fig.suptitle(f"{property_name} vs lindist")
+    fig.subplots_adjust(top=0.90)
     fig.savefig(os.path.join(figfolder, f"{property_name}_vs_lindist.png"), dpi=300)
+    fig.savefig(os.path.join(figfolder, f"{property_name}_vs_lindist.pdf"))
     plt.show()
 
 plot_property_vs_lindist(df, "U1")
@@ -672,6 +693,8 @@ def plot_property_vs_lindist_by_animal(df, property_name, N=100_000, winsize=Non
     - winsize: Window size for rolling mean. If None, no rolling mean is applied.
     - figfolder: Folder to save the figures
     """
+
+    print("Plotting", property_name, "by animal")
     
     # Set of unique animals
     animals = df['animal'].unique()
@@ -689,6 +712,9 @@ def plot_property_vs_lindist_by_animal(df, property_name, N=100_000, winsize=Non
             # Subsample
             sampled_data = traj_data.sample(n=min(N, len(traj_data)), random_state=42)
             sampled_data = sampled_data.sort_values(by=["trajbound", "lindist"])
+            if sampled_data.empty:
+                warnings.warn(f"Animal {animal} has no data for trajbound {trajbound}")
+                continue
             
             if winsize:
                 if method == "mean":
@@ -702,6 +728,9 @@ def plot_property_vs_lindist_by_animal(df, property_name, N=100_000, winsize=Non
                 elif method == "median":
                     print("median")
                     sampled_data[property_name] = sampled_data[property_name].rolling(winsize, min_periods=1).median().interpolate()
+            if sampled_data.empty:
+                warnings.warn(f"Animal {animal} has no data for trajbound {trajbound} after rolling")
+                continue
         
             # Plot
             axs[i][j].axhline(y=0, color="red", linestyle="dashed", alpha=0.2)

@@ -1,5 +1,55 @@
 # assumes variables loaded from regressbeh.jl
 
+plotfolder=joinpath(splitpath(folder)[1:end-1]..., "julia_regressbeh")
+if !isdir(plotfolder)
+	mkdir(plotfolder)
+end
+
+#  . .     ,---.|         |    
+# -+-+-    |---'|    ,---.|--- 
+# -+-+-    |    |    |   ||    
+#  ` `     `    `---'`---'`---'
+
+
+"""
+	plot_predictions(animal, behavior, paramset=nothing)
+Plots the predictions for a given animal and behavior.
+- `animal` is the animal name
+- `behavior` is the behavior name
+- `paramset` is a vector or range of indices of the parameters to use for prediction
+Output: a plot object
+"""
+function plot_predictions(animal, behavior, paramset=nothing)
+	mdl = models_dict[animal, behavior]
+	if paramset === nothing
+		nms = [n for n in names(mdl) if contains(string(n), "β") || contains(string(n), "α")]
+		paramset = 1:length(nms)
+	end
+	p=plot(mdl[paramset], legend=false)
+	# Assuming you have 33 rows and 2 columns
+	for i in paramset
+		subplot = p[i, 2]  # get the subplot in the 2nd column for each row
+		subplot2 = p[i, 1]  # get the subplot in the 1st column for each row
+		q = subplot.series_list[1]  # get the plot object
+		q2 = subplot2.series_list[1]  # get the plot object
+		if i > 1 && i <= 11
+			q.plotattributes[:fillcolor] = :blue  # set the color attribute of the plot
+			q2.plotattributes[:fillcolor] = :blue  # set the color attribute of the plot
+		elseif i > 11 && i <= 22
+			q.plotattributes[:fillcolor] = :red
+			q2.plotattributes[:fillcolor] = :red
+		else
+			q.plotattributes[:fillcolor] = :blue
+			q2.plotattributes[:fillcolor] = :blue
+		end
+		vline!(subplot, [0], color=:red)  # add a vertical line at x=0
+	end
+	plot!(p, link=:x)
+	p
+end
+
+
+
 function generate_heatmap(df::DataFrame, metric::Symbol; type=nothing, diff_type=nothing, kwargs...)
     
     # If diff_type is provided, ensure type is also provided

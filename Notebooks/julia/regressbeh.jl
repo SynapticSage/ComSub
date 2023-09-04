@@ -1,25 +1,4 @@
-using Distributed: remotecall_eval
-using Plots, StatsPlots
-using Metrics
-using Statistics
-using DataFrames
-using MAT
-using Serialization
-using Interpolations
-import Turing
-import MLJBase
-using DataFrames
-using ProgressMeter
-using Distributed, Metrics
-# import Threads
-using SearchSortedNearest
-using Infiltrator
-using PyCall
-@pyimport sklearn.metrics as skm
-@pyimport warnings
-warnings.filterwarnings("ignore")
-@pyimport sklearn.preprocessing as skp
-@everywhere using TuringGLM
+include("/Volumes/MATLAB-Drive/Shared/Notebooks/julia/regress_funcs.jl")
 n_chains = 4;
 # Number of samples
 animals = ["JS21", "JS15", "JS14", "ZT2", "JS17", "JS13"]
@@ -29,10 +8,6 @@ overwrite = true
 Threads.nthreads() = n_chains;
 # addprocs(n_chains-1)
 folder = "/Volumes/MATLAB-Drive/Shared/figures/midpattern=true/data/"
-plotfolder=joinpath(splitpath(folder)[1:end-1]..., "julia_regressbeh")
-if !isdir(plotfolder)
-	mkdir(plotfolder)
-end
 global behavior_names = ["vel", "lindist", "accel", "trajbound", "leftright", "rewarded", "futureRewarded", "previousRewarded", "idphi", "future"]
 
 if isfile(joinpath(folder, "coeffs_dict.jls"))
@@ -214,19 +189,6 @@ end
 #  ` `       `  `---'`---'`---'
                              
 
-# Function to predict based on test data and coefficients
-function predict(test_data, coeffs)
-    # Assuming a linear combination for predictions
-    return test_data * coeffs'
-end
-
-# For Bernoulli predictions, you might want to convert predictions to probabilities using logistic function
-logistic(x) = 1. / (1. + exp(-x))
-
-function get_test_indices(train_indices, total_data_size)
-    return setdiff(1:total_data_size, train_indices)
-end
-
 """
 	predict_and_compute_stats(model::Chains, 
 		test_data::DataFrame, 
@@ -371,90 +333,6 @@ animal = first(animals)
 end
 
 
-#  . .     ,---.|         |    
-# -+-+-    |---'|    ,---.|--- 
-# -+-+-    |    |    |   ||    
-#  ` `     `    `---'`---'`---'
-
-
-"""
-	plot_predictions(animal, behavior, paramset=nothing)
-Plots the predictions for a given animal and behavior.
-- `animal` is the animal name
-- `behavior` is the behavior name
-- `paramset` is a vector or range of indices of the parameters to use for prediction
-Output: a plot object
-"""
-function plot_predictions(animal, behavior, paramset=nothing)
-	mdl = models_dict[animal, behavior]
-	if paramset === nothing
-		nms = [n for n in names(mdl) if contains(string(n), "β") || contains(string(n), "α")]
-		paramset = 1:length(nms)
-	end
-	p=plot(mdl[paramset], legend=false)
-	# Assuming you have 33 rows and 2 columns
-	for i in paramset
-		subplot = p[i, 2]  # get the subplot in the 2nd column for each row
-		subplot2 = p[i, 1]  # get the subplot in the 1st column for each row
-		q = subplot.series_list[1]  # get the plot object
-		q2 = subplot2.series_list[1]  # get the plot object
-		if i > 1 && i <= 11
-			q.plotattributes[:fillcolor] = :blue  # set the color attribute of the plot
-			q2.plotattributes[:fillcolor] = :blue  # set the color attribute of the plot
-		elseif i > 11 && i <= 22
-			q.plotattributes[:fillcolor] = :red
-			q2.plotattributes[:fillcolor] = :red
-		else
-			q.plotattributes[:fillcolor] = :blue
-			q2.plotattributes[:fillcolor] = :blue
-		end
-		vline!(subplot, [0], color=:red)  # add a vertical line at x=0
-	end
-	plot!(p, link=:x)
-	p
-end
-
-
-
-function stat_dict_to_dataframe(data::Dict{Tuple{String, String, String}, Dict{String, Any}}, explode=false)
-    # We will first figure out the unique stat keys from the first entry
-    example_key = first(keys(data))
-    stat_keys = keys(data[example_key])
-    
-    # Create columns for each of these stat keys
-    columns = Dict{Symbol, Any}(:Animal => String[], :Behavior => String[], :Type => String[])
-    for stat_key in stat_keys
-        columns[Symbol(stat_key)] = Vector{Float64}[]
-    end
-
-    all_rows = []
-
-    # Extract data from the dictionary
-    for ((animal, behavior, type), stats) in data
-        if explode
-            n = length(stats[first(stat_keys)])
-            for i in 1:n
-                row = Dict{Symbol, Any}(:Animal => animal, :Behavior => behavior, :Type => type)
-                for stat_key in stat_keys
-                    row[Symbol(stat_key)] = stats[stat_key][i]
-                end
-                push!(all_rows, row)
-            end
-        else
-            row = Dict{Symbol, Any}(:Animal => animal, :Behavior => behavior, :Type => type)
-            for stat_key in stat_keys
-                row[Symbol(stat_key)] = stats[stat_key]
-            end
-            push!(all_rows, row)
-        end
-    end
-
-    # Convert rows to DataFrame
-    df = DataFrame(all_rows)
-    return df
-end
-                             
-
 # Usage
 stat_df = stat_dict_to_dataframe(stat_dict, true)  # Set true to explode the vectors
 
@@ -465,51 +343,6 @@ stat_df = stat_dict_to_dataframe(stat_dict, true)  # Set true to explode the vec
 #  ` `     `---'`---'`---'`        |---'`---'`---'`---'`---'
 #                                  |                        
 
-# CONSTRUCT A DATAFRAME OF COEFFICIENTS
-function extract_coefficients(models_dict::Dict, predictors::Vector{String})
-    # Initialize an empty DataFrame
-    coeffs_df = DataFrame(
-        Animal = String[],
-        Behavior = String[],
-        Coefficient = String[],
-        SampleNum = Int[],
-        Value = Float64[]
-    )
-    # Iterate over the models_dict
-    for ((animal, behavior), model) in models_dict
-        # Extract α (intercept) samples
-        α_samples = model[:α].data
-        for (sample_num, α_val) in enumerate(α_samples)
-            push!(coeffs_df, (animal, behavior, "Intercept", sample_num, α_val))
-        end
-        # Extract β (coefficients) samples
-		for (i,predictor) in enumerate(predictors)
-            # Extract the predictor's samples
-            # predictor_name = "β[$predictor]"
-            predictor_name = "β[$i]"
-            β_samples = model[predictor_name].data
-            
-            for (sample_num, β_val) in enumerate(β_samples)
-                push!(coeffs_df, (animal, behavior, predictor, sample_num, β_val))
-            end
-        end
-    end
-	# Split the Coefficient column strings and create new columns
-	coeffs_df[!, "Property1"] = Vector{Union{Missing,String}}(missing, size(coeffs_df, 1))
-	coeffs_df[!, "Property2"] = Vector{Union{Missing,String}}(missing, size(coeffs_df, 1))
-    for i in 1:size(coeffs_df, 1)
-        # If the coefficient name is not "Intercept"
-        if coeffs_df[i, :Coefficient] != "Intercept"
-            properties = split(coeffs_df[i, :Coefficient], "_")
-            coeffs_df[i, :Property1] = properties[1]
-            coeffs_df[i, :Property2] = properties[2]  # Extend this as needed for more properties
-        else
-            coeffs_df[i, :Property1] = missing
-            coeffs_df[i, :Property2] = missing  # Extend this as needed for more properties
-        end
-    end
-    return coeffs_df
-end
 
 animal = first(animals)
 coefs_df = DataFrame()

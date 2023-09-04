@@ -42,11 +42,33 @@ bands = OrderedDict(
     "mid_gamma"  => (50.0, 80.0),
     "high_gamma" => (80.0, 100.0),
     "epsilon"    => (100.0, 120.0),
-    "ripple"     => (120.0, 160.0)
+    "ripple"     => (150.0, 250.0)
 )
+
+"""
+    predict_and_compute_stats(model, test_data, predictors, all_predictors,
+			      regressed)
+
+Predicts on the test data using the model and computes summary statistics
+such as accuracy, R2, MSE, precision, recall, and F1 score.
+
+# Arguments
+- `model`: The model to use for prediction
+- `test_data`: The test data to predict on
+- `predictors`: The predictors to use for prediction
+- `all_predictors`: All the predictors in the dataset
+- `regressed`: The column to regress on
+- `paramrange`: The range of parameters to use for prediction
+# Returns
+- `accuracy`: The accuracy of the predictions
+- `r2`: The R2 score of the predictions
+- `mse`: The mean squared error of the predictions
+- `predictions`: The predictions
+- `prec`: The precision of the predictions
+"""
 function predict_and_compute_stats_v2(model,
     test_data, predictors, all_predictors, regressed)
-	print("Predicting on test data...")
+    print("Predicting on test data...")
     paramrange = findall(in.(predictors, [all_predictors]))
     # Extract relevant coefficients
     α = model[:α]  # Intercept
@@ -58,54 +80,84 @@ function predict_and_compute_stats_v2(model,
     # Predict on test data
     X_test = Matrix(test_data[:, predictors])
     # Ensure that the dimensions are consistent
-    @assert(size(X_test, 2) == size(β, 2))
-    @assert(size(X_test, 1) == size(test_data, 1))
-	predictions = zeros(size(X_test,1), size(α,1))
-	for i in eachindex(α)
-		predictions[:,i] = α[i] .+ (X_test * β[i, :].data)
-	end
+    try
+	@assert(!isempty(predictors))
+@assert(size(X_test, 2) == size(β, 2))
+	@assert(size(X_test, 1) == size(test_data, 1))
+    catch
+	@infiltrate
+    end
+    predictions = zeros(size(X_test,1), size(α,1))
+    for i in eachindex(α)
+	    predictions[:,i] = α[i] .+ (X_test * β[i, :].data)
+    end
     # Compute summary stats
     true_values = test_data[:, regressed]  # Assuming "Behavior" is your target column
-	if length(unique(true_values)) == 2
-		predictions = logistic.(predictions)
-	end
-	# R-squared
-	residuals = true_values .- predictions
-	residuals = residuals .^ 2;
-	ss_res = vec(sum(residuals, dims=1))
-	ts = (true_values .- mean(true_values)) .^ 2
-	ts = repeat(ts, 1, size(predictions,2))
-	ss_tot = vec(sum(ts, dims=1))
-	r2 = 1 .- (ss_res ./ ss_tot)
-	# Accuracy
-	binary_preds = Int64.(round.(predictions))
-	true_values = ones(Int64,size(binary_preds)) .* Int64.(round.(true_values));
-	accuracy = vec(mean(binary_preds .== true_values, dims=1))
-	bp = binary_preds[:,1]
-	tv = true_values[:,1]
-	prec = zeros(size(binary_preds,2))
-	rec = zeros(size(binary_preds,2))
-	@showprogress "prec and recall" for (i, (bp, tv)) in enumerate(zip(eachcol(binary_preds), eachcol(true_values)))
-		prec[i] = skm.precision_score(bp, tv, average="weighted")
-		rec[i] = skm.recall_score(bp, tv, average="weighted")
-	end
-	f1_score = 2 .* ((prec .* rec) ./ (prec.+ rec))
-	# binarize = tv->skp.label_binarize(reshape(tv,length(tv),1), classes=unique(tv))
-	# roc_auc = [skm.roc_auc_score(binarize(bp), binarize(tv), average="weighted") for (bp, tv) in zip(eachcol(binary_preds), eachcol(true_values))]
-	# MSE
-	mse = vec(mean(residuals .^ 2, dims=1))
-	print("Accuracy: ", mean(accuracy))
-	print("R2: ", mean(r2))
-	print("MSE: ", mean(mse))
+    if length(unique(true_values)) == 2
+	    predictions = logistic.(predictions)
+    end
+    # R-squared
+    residuals = true_values .- predictions
+    residuals = residuals .^ 2;
+    ss_res = vec(sum(residuals, dims=1))
+    ts = (true_values .- mean(true_values)) .^ 2
+    ts = repeat(ts, 1, size(predictions,2))
+    ss_tot = vec(sum(ts, dims=1))
+    r2 = 1 .- (ss_res ./ ss_tot)
+    # Accuracy
+    binary_preds = Int64.(round.(predictions))
+    true_values = ones(Int64,size(binary_preds)) .* Int64.(round.(true_values));
+    accuracy = vec(mean(binary_preds .== true_values, dims=1))
+    bp = binary_preds[:,1]
+    tv = true_values[:,1]
+    prec = zeros(size(binary_preds,2))
+    rec = zeros(size(binary_preds,2))
+    @showprogress "prec and recall" for (i, (bp, tv)) in enumerate(zip(eachcol(binary_preds), eachcol(true_values)))
+	    prec[i] = skm.precision_score(bp, tv, average="weighted")
+	    rec[i] = skm.recall_score(bp, tv, average="weighted")
+    end
+    f1_score = 2 .* ((prec .* rec) ./ (prec.+ rec))
+    # binarize = tv->skp.label_binarize(reshape(tv,length(tv),1), classes=unique(tv))
+    # roc_auc = [skm.roc_auc_score(binarize(bp), binarize(tv), average="weighted") for (bp, tv) in zip(eachcol(binary_preds), eachcol(true_values))]
+    # MSE
+    mse = vec(mean(residuals .^ 2, dims=1))
+    print("Accuracy: ", mean(accuracy))
+    print("R2: ", mean(r2))
+    print("MSE: ", mean(mse))
     return (;accuracy, r2, mse, predictions, prec, rec, f1_score)
 end
 
+function generate_frequency_bands(frequencies::Vector{Float64}, downsampling::Int=1)
+    # Initialize an empty OrderedDict to hold the new bands
+    new_bands = OrderedDict()
+    
+    # Iterate over each original band
+    for (band_name, (lower, upper)) in bands
+        # Filter the frequencies that fall within the current band
+        filtered_frequencies = filter(f -> lower <= f <= upper, frequencies)
+        
+        # Apply downsampling
+        for i in 1:downsampling:length(filtered_frequencies)
+            start_idx = i
+            end_idx = min(i + downsampling - 1, length(filtered_frequencies))
+            
+            new_band_name = string(band_name, "__", div(i - 1, downsampling) + 1)
+            new_bands[new_band_name] = (filtered_frequencies[start_idx], filtered_frequencies[end_idx])
+        end
+    end
+    
+    return new_bands
+end
 
-function compute_band_means(efizz_data, frequencies)
+new_bands = generate_frequency_bands(vec(efizz["f"]), 3)
+
+
+
+function compute_band_means(efizza_data, frequencies)
     band_means = Dict()
     for (band_name, (low, high)) in bands
         idx = findall(x -> x >= low && x <= high, frequencies)
-        band_means[band_name] = mean(efizz_data[:, idx], dims=2)
+        band_means[band_name] = mean(efizza_data[:, idx], dims=2)
     end
     return band_means
 end
@@ -117,6 +169,7 @@ function compute_band_means_for_efizz(efizz::Dict{String, Any})
 
     # Initiate a new dictionary to store the band means
     band_means_dict = Dict()
+    bands = generate_frequency_bands(frequencies, 3)
 
     for (key, matrix) in efizz
 	sz = if matrix !== missing 
@@ -186,20 +239,21 @@ function get_dataset(animal::String)
     efizz = matefizz["efizz"]
     efizz["phi_cos"] = cos.(efizz["phi"])
     efizz["phi_sin"] = sin.(efizz["phi"])
-    efizz_var_to_use = ["S1", "S2", "Cavg", "wpli_avg", "phi_cos", "phi_sin"]
-    global efizz_time = vec(efizz["t"])
+    efizza_var_to_use = ["S1", "S2", "Cavg", "wpli_avg", "phi_cos", "phi_sin"]
+    global efizza_time = vec(efizz["t"])
     use_condensed = true 
+    bands = generate_frequency_bands(vec(efizz["f"]), 3)
     global condensed_efizz = if use_condensed 
 	compute_band_means_for_efizz(efizz)
     else
 	efizz
     end
-    time_indices = searchsortednearest.([efizz_time], uv_time)
+    time_indices = searchsortednearest.([efizza_time], uv_time)
     interpolated_efizz = Dict()
     println("Interpolating efizz data...")
-    for field in efizz_var_to_use
+    for field in efizza_var_to_use
         field_data = condensed_efizz[field]
-        if size(field_data, 1) != length(efizz_time)
+        if size(field_data, 1) != length(efizza_time)
             println("Mismatch in dimensions for field: $field")
             continue
         end
@@ -215,14 +269,14 @@ function get_dataset(animal::String)
         interpolated_data = tmp
         interpolated_efizz[field] = interpolated_data
     end
-    println("Constructing dataframes...")
+    println("Constructing dataframes ...")
     global df_R  = DataFrame(R[:,1:10], :auto)
     global df_Ru = DataFrame(Ru[:,1:10], :auto)
     rename!(df_R, [Symbol("R_", i) for i in 1:size(df_R, 2)])
     rename!(df_Ru, [Symbol("Ru_", i) for i in 1:size(df_Ru, 2)])
     global df_efizz = DataFrame()
     field = first(keys(interpolated_efizz))
-    for field in efizz_var_to_use
+    for field in efizza_var_to_use
         field_data = interpolated_efizz[field]
 	freq_idx = 1
         for freq_idx in 1:size(field_data, 2)
@@ -255,14 +309,14 @@ function get_test_indices(train_indices, total_data_size)
 end
 
 # Load or initialize coefficients and models dictionaries
-coef_dict = isfile(joinpath(folder, "efizz_coef_dict.jls")) ? deserialize(joinpath(folder, "efizz_coef_dict.jls")) : Dict{Tuple{String,String}, Any}()
-models_dict = isfile(joinpath(folder, "efizz_models_dict.jls")) ? deserialize(joinpath(folder, "efizz_models_dict.jls")) : Dict{Tuple{String,String}, Any}()
-inds_dict   = isfile(joinpath(folder, "efizz_inds_dict.jls")) ? 
-    deserialize(joinpath(folder, "efizz_inds_dict.jls")) : Dict{String, Any}()
+coef_dict = isfile(joinpath(folder, "efizza_coef_dict.jls")) ? deserialize(joinpath(folder, "efizza_coef_dict.jls")) : Dict{Tuple{String,String}, Any}()
+models_dict = isfile(joinpath(folder, "efizza_models_dict.jls")) ? deserialize(joinpath(folder, "efizza_models_dict.jls")) : Dict{Tuple{String,String}, Any}()
+inds_dict   = isfile(joinpath(folder, "efizza_inds_dict.jls")) ? 
+    deserialize(joinpath(folder, "efizza_inds_dict.jls")) : Dict{String, Any}()
 curr_animal = ""
-stat_dict = isfile(joinpath(folder, "efizz_stat_dict.jls")) ? deserialize(joinpath(folder, "efizz_stat_dict.jls")) : Dict{Tuple{String,String,String}, Dict{String, Any}}()
-predictions_df = isfile(joinpath(folder, "efizz_predictions_df.jls")) ? deserialize(joinpath(folder, "efizz_predictions_df.jls")) : DataFrame()
-coeffs_df = isfile(joinpath(folder, "efizz_coeffs_df.jls")) ? deserialize(joinpath(folder, "efizz_coeffs_df.jls")) : DataFrame()
+stat_dict = isfile(joinpath(folder, "efizza_stat_dict.jls")) ? deserialize(joinpath(folder, "efizza_stat_dict.jls")) : Dict{Tuple{String,String,String}, Dict{String, Any}}()
+predictions_df = isfile(joinpath(folder, "efizza_predictions_df.jls")) ? deserialize(joinpath(folder, "efizza_predictions_df.jls")) : DataFrame()
+coeffs_df = isfile(joinpath(folder, "efizza_coeffs_df.jls")) ? deserialize(joinpath(folder, "efizza_coeffs_df.jls")) : DataFrame()
 # if length(workers()) < n_chains
 #     addprocs(n_chains - length(workers()))
 #     @everywhere using TuringGLM, MCMCChains
@@ -271,13 +325,12 @@ curranimal=""
 animal = first(animals)
 
 @showprogress "animal" for animal in animals
-
     if curranimal != animal
 	global curranimal = animal
 	global data = get_dataset(animal)
-	@unpack U, V, R, Ru, uv_time, spikeRateMatrix, df_R, df_Ru, df_efizz = data
-	print("Sampling for animal $animal...")
+	print("Sampling for animal $animal ...")
     end
+    @unpack U, V, R, Ru, uv_time, spikeRateMatrix, df_R, df_Ru, df_efizz = data
 
     df_all = DataFrames.hcat(df_R, df_Ru, df_efizz)
     if overwrite || !haskey(inds_dict, animal)
@@ -306,58 +359,65 @@ animal = first(animals)
 	col = first(names(df_all))
 	for col in names(df_all)
 	    train_gpu_columns[col] = CuArray(df_all[!, col])
-	    test_gpu_columns[col] = CuArray(test_data[!, col])
+	    test_gpu_columns[col]  = CuArray(test_data[!, col])
 	end
 	# Convert dataframes to GPU arrays
 	train_data = DataFrame(train_gpu_columns, names(train_data))
 	test_data = DataFrame(test_gpu_columns, names(test_data))
     end
     predictors = names(df_efizz)
+    println("Number of efizz predcitors: ", length(predictors))
     prog = Progress(length(vcat(names(df_R), names(df_Ru))), 1, "Processing columns...")
     println("Regressing each column...")
     target_col = first(vcat(names(df_R), names(df_Ru)))
 
+    target_col = first(vcat(names(df_R), names(df_Ru)))
     @showprogress "targets" for target_col in vcat(names(df_R), names(df_Ru))
 
-        formula_str = "$(target_col) ~ " * join(predictors, " + ")
-        formula_expr = Meta.parse("formula = @formula($formula_str)")
-        formula = eval(formula_expr)
-	model = TDist
-	init_vals = [(:ν, 1.0), (:σ, 4.0)]
-	md = turing_model(formula, train_data; model=model)
+	if !haskey(coef_dict, (animal, target_col))
+	    formula_str = "$(target_col) ~ " * join(predictors, " + ")
+	    formula_expr = Meta.parse("formula = @formula($formula_str)")
+	    formula = eval(formula_expr)
+	    md = turing_model(formula, train_data) # linear regression
 
-        tries = 5
-        while tries > -1
-            try
-		# advi = ADVI(100, 1000)
-		# @time global q = vi(md, advi; optimizer=Flux.ADAM(0.1))
-                @time global chns = sample(md, NUTS(), n_samples; init_theta=init_vals)
-		# global chns = @async sample(md, NUTS(), MCMCDistributed(),
+	    tries = 5
+	    while tries > -1
+		try
+		    # advi = ADVI(100, 1000)
+		    # @time global q = vi(md, advi; optimizer=Flux.ADAM(0.1))
+		    @time global chns = sample(md, NUTS(), n_samples)
+		    # global chns = @async sample(md, NUTS(), MCMCDistributed(),
 		    # n_samples, n_chains; init_theta=init_vals)
-		chns = fetch(chns)
-                models_dict[(animal, target_col)] = chns
-                tries = -1
-		print("...done")
-            catch e
-                println("Error encountered during sampling: ", e)
-                tries -= 1
-                continue
-            end
-        end
-        coeffs = chns.value.data
-        println("Coefficients for target column $target_col: $coeffs")
-        coef_dict[(animal, target_col)] = coeffs
+		    chns = fetch(chns)
+		    models_dict[(animal, target_col)] = chns
+		    tries = -1
+		    print("...done")
+		catch e
+		    println("Error encountered during sampling: ", e)
+		    tries -= 1
+		    continue
+		end
+	    end
+	    coeffs = chns.value.data
+	    println("Coefficients for target column $target_col: $coeffs")
+	    coef_dict[(animal, target_col)] = coeffs
+	end
 
 	# TESTING
 	paramset = "all"
-	@showprogress "paramset" for paramset in ["S1", "S2", "Cavg", "wpli_avg", "phi_cos", "phi_sin", (keys(bands)|>collect) ..., "all"]
-
+        band_keys = (keys(bands)|>collect)|>x->replace.(string.(x), trades...)
+	@showprogress "paramset" for paramset in [band_keys..., "all"]
+	    if haskey(stat_dict, (animal, target_col, paramset))
+		continue
+	    end
 	    preds = if paramset == "all"
 		predictors
 	    else
 		[x for x in predictors if occursin(paramset, x)]
 	    end
-
+	    if isempty(preds)
+		@infiltrate
+	    end
 	    # Testing
 	    stats = predict_and_compute_stats_v2(chns, test_data, preds, predictors, target_col)
 	    # @unpack accuracy, r2, mse, predictions, prec, rec, f1_score = stats
@@ -369,27 +429,24 @@ animal = first(animals)
 		"Accuracy"=>stats.accuracy, "R2"=>stats.r2, "MSE" => stats.mse, 
 		"Prec"=>stats.prec, "Rec"=>stats.rec, "F1_score"=>stats.f1_score
 	    )
-
 	    # Store the predictions into predictions_df
 	    pred_df = DataFrame(
-	       animal = repeat([animal], length(test_inds)),
-	       commsub = repeat([target_col], length(test_inds)),
-	       time = uv_time[test_inds],
-	       actual = test_data[:, target_col],
-	       predicted = vec(mean(stats.predictions, dims=2)),
+		animal = repeat([animal], length(test_inds)),
+		commsub = repeat([target_col], length(test_inds)),
+		time = uv_time[test_inds],
+		actual = test_data[:, target_col],
+		predicted = vec(mean(stats.predictions, dims=2)),
 		precision = repeat([mean(stats.prec)], length(test_inds)),
 		recall = repeat([mean(stats.rec)], length(test_inds)),
 		f1_score = repeat([mean(stats.f1_score)], length(test_inds)),
-	       n_sample = repeat([n_samples], length(test_inds)),
-	       accuracy = repeat([mean(stats.accuracy)], length(test_inds)),
-	       r2 = repeat([mean(stats.r2)], length(test_inds)),
-	       mse = repeat([mean(stats.mse)], length(test_inds)),
-	       paramset = repeat([paramset], length(test_inds)),
-	   )
-
+		n_sample = repeat([n_samples], length(test_inds)),
+		accuracy = repeat([mean(stats.accuracy)], length(test_inds)),
+		r2 = repeat([mean(stats.r2)], length(test_inds)),
+		mse = repeat([mean(stats.mse)], length(test_inds)),
+		paramset = repeat([paramset], length(test_inds)),
+	    )
 	    append!(predictions_df, pred_df; cols=:union)
 	end
-
     end
 
     if usegpu
@@ -400,11 +457,11 @@ animal = first(animals)
     end
     next!(prog)
     # Save the dictionaries to disk
-    serialize(joinpath(folder, "efizz_coef_dict.jls"), coef_dict)
-    serialize(joinpath(folder, "efizz_models_dict.jls"), models_dict)
-    serialize(joinpath(folder, "efizz_inds_dict.jls"), inds_dict)
-    serialize(joinpath(folder, "efizz_stat_dict.jls"), stat_dict)
-    serialize(joinpath(folder, "efizz_predictions_df.jls"), predictions_df)
+    serialize(joinpath(folder, "efizza_coef_dict.jls"), coef_dict)
+    serialize(joinpath(folder, "efizza_models_dict.jls"), models_dict)
+    serialize(joinpath(folder, "efizza_inds_dict.jls"), inds_dict)
+    serialize(joinpath(folder, "efizza_stat_dict.jls"), stat_dict)
+    serialize(joinpath(folder, "efizza_predictions_df.jls"), predictions_df)
 end
 
 
@@ -440,7 +497,7 @@ end
 for (key, chns) in models_dict
     models_dict[key] = replace_names(chns, mode=3)
 end
-serialize(joinpath(folder, "efizz_models_dict.jls"), models_dict)
+serialize(joinpath(folder, "efizza_models_dict.jls"), models_dict)
 
 
 stat_df = stat_dict_to_dataframe(stat_dict, true, :commsub)
@@ -457,7 +514,7 @@ predictors = Symbol.(replace.(string.(propertynames(df_efizz)), trades...))
 c_df = extract_coefficients(models_dict, string.(predictors); 
     target_prop=:commsub, splitter_props=[:Coefficient, :target_prop])
 append!(coefs_df, c_df, cols=:union)
-serialize(joinpath(folder, "efizz_coefs_df.jls"), coefs_df)
+serialize(joinpath(folder, "efizza_coefs_df.jls"), coefs_df)
 
 coefs_df.ValueAbs = abs.(coefs_df.Value)
 coefs_df.orthostate = map(x->
@@ -470,7 +527,7 @@ begin
 		"Orthogonal"
 	end
 end, coefs_df.target_prop1)
-serialize(joinpath(folder, "efizz_coefs_df.jls"), coefs_df)
+serialize(joinpath(folder, "efizza_coefs_df.jls"), coefs_df)
 
 print("Adding lindist_bin_mid column...")
 # Coefficients by animal and behavior
@@ -487,5 +544,5 @@ Cdf = begin
     Dict(names(Cdf) .=> eachcol(Cdf))
 end
 Cdf = pd.DataFrame(Cdf)
-Cdf.to_csv(joinpath(folder, "efizz_coefs_df.csv"))
+Cdf.to_csv(joinpath(folder, "efizza_coefs_df.csv"))
 

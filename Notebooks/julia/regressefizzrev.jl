@@ -35,14 +35,13 @@ println("numsamprow: $numsamprow")
 
 # Define frequency bands globally
 bands = OrderedDict(
-    "delta"      => (0.5, 4.0),
+    "delta"      => (0.5, 3.5),
     "theta"      => (6.0, 12.0),
     "beta"       => (13.0, 30.0),
     "low_gamma"  => (30.0, 50.0),
     "mid_gamma"  => (50.0, 80.0),
     "high_gamma" => (80.0, 100.0),
-    "epsilon"    => (100.0, 120.0),
-    "ripple"     => (120.0, 160.0)
+    "ripple"     => (150.0, 250.0),
 )
 function predict_and_compute_stats_v2(model,
     test_data, predictors, all_predictors, regressed)
@@ -101,11 +100,11 @@ function predict_and_compute_stats_v2(model,
 end
 
 
-function compute_band_means(efizz_data, frequencies)
+function compute_band_means(efizzr_data, frequencies)
     band_means = Dict()
     for (band_name, (low, high)) in bands
         idx = findall(x -> x >= low && x <= high, frequencies)
-        band_means[band_name] = mean(efizz_data[:, idx], dims=2)
+        band_means[band_name] = mean(efizzr_data[:, idx], dims=2)
     end
     return band_means
 end
@@ -186,20 +185,20 @@ function get_dataset(animal::String)
     efizz = matefizz["efizz"]
     efizz["phi_cos"] = cos.(efizz["phi"])
     efizz["phi_sin"] = sin.(efizz["phi"])
-    efizz_var_to_use = ["S1", "S2", "Cavg", "wpli_avg", "phi_cos", "phi_sin"]
-    global efizz_time = vec(efizz["t"])
+    efizzr_var_to_use = ["S1", "S2", "Cavg", "wpli_avg", "phi_cos", "phi_sin"]
+    global efizzr_time = vec(efizz["t"])
     use_condensed = true 
     global condensed_efizz = if use_condensed 
 	compute_band_means_for_efizz(efizz)
     else
 	efizz
     end
-    time_indices = searchsortednearest.([efizz_time], uv_time)
+    time_indices = searchsortednearest.([efizzr_time], uv_time)
     interpolated_efizz = Dict()
     println("Interpolating efizz data...")
-    for field in efizz_var_to_use
+    for field in efizzr_var_to_use
         field_data = condensed_efizz[field]
-        if size(field_data, 1) != length(efizz_time)
+        if size(field_data, 1) != length(efizzr_time)
             println("Mismatch in dimensions for field: $field")
             continue
         end
@@ -222,7 +221,7 @@ function get_dataset(animal::String)
     rename!(df_Ru, [Symbol("Ru_", i) for i in 1:size(df_Ru, 2)])
     global df_efizz = DataFrame()
     field = first(keys(interpolated_efizz))
-    for field in efizz_var_to_use
+    for field in efizzr_var_to_use
         field_data = interpolated_efizz[field]
 	freq_idx = 1
         for freq_idx in 1:size(field_data, 2)
@@ -255,14 +254,14 @@ function get_test_indices(train_indices, total_data_size)
 end
 
 # Load or initialize coefficients and models dictionaries
-coef_dict = isfile(joinpath(folder, "efizz_coef_dict.jls")) ? deserialize(joinpath(folder, "efizz_coef_dict.jls")) : Dict{Tuple{String,String}, Any}()
-models_dict = isfile(joinpath(folder, "efizz_models_dict.jls")) ? deserialize(joinpath(folder, "efizz_models_dict.jls")) : Dict{Tuple{String,String}, Any}()
-inds_dict   = isfile(joinpath(folder, "efizz_inds_dict.jls")) ? 
-    deserialize(joinpath(folder, "efizz_inds_dict.jls")) : Dict{String, Any}()
+coef_dict = isfile(joinpath(folder, "efizzr_coef_dict.jls")) ? deserialize(joinpath(folder, "efizzr_coef_dict.jls")) : Dict{Tuple{String,String}, Any}()
+models_dict = isfile(joinpath(folder, "efizzr_models_dict.jls")) ? deserialize(joinpath(folder, "efizzr_models_dict.jls")) : Dict{Tuple{String,String}, Any}()
+inds_dict   = isfile(joinpath(folder, "efizzr_inds_dict.jls")) ? 
+    deserialize(joinpath(folder, "efizzr_inds_dict.jls")) : Dict{String, Any}()
 curr_animal = ""
-stat_dict = isfile(joinpath(folder, "efizz_stat_dict.jls")) ? deserialize(joinpath(folder, "efizz_stat_dict.jls")) : Dict{Tuple{String,String,String}, Dict{String, Any}}()
-predictions_df = isfile(joinpath(folder, "efizz_predictions_df.jls")) ? deserialize(joinpath(folder, "efizz_predictions_df.jls")) : DataFrame()
-coeffs_df = isfile(joinpath(folder, "efizz_coeffs_df.jls")) ? deserialize(joinpath(folder, "efizz_coeffs_df.jls")) : DataFrame()
+stat_dict = isfile(joinpath(folder, "efizzr_stat_dict.jls")) ? deserialize(joinpath(folder, "efizzr_stat_dict.jls")) : Dict{Tuple{String,String,String}, Dict{String, Any}}()
+predictions_df = isfile(joinpath(folder, "efizzr_predictions_df.jls")) ? deserialize(joinpath(folder, "efizzr_predictions_df.jls")) : DataFrame()
+coeffs_df = isfile(joinpath(folder, "efizzr_coeffs_df.jls")) ? deserialize(joinpath(folder, "efizzr_coeffs_df.jls")) : DataFrame()
 # if length(workers()) < n_chains
 #     addprocs(n_chains - length(workers()))
 #     @everywhere using TuringGLM, MCMCChains
@@ -312,14 +311,20 @@ animal = first(animals)
 	train_data = DataFrame(train_gpu_columns, names(train_data))
 	test_data = DataFrame(test_gpu_columns, names(test_data))
     end
-    predictors = names(df_efizz)
+    predictors = [names(df_R); names(df_Ru)]
     prog = Progress(length(vcat(names(df_R), names(df_Ru))), 1, "Processing columns...")
     println("Regressing each column...")
     target_col = first(vcat(names(df_R), names(df_Ru)))
 
-    @showprogress "targets" for target_col in vcat(names(df_R), names(df_Ru))
+    @showprogress "targets" for target_col in names(df_efizz)
 
+
+	if haskey(coef_dict, (animal, target_col))
+	    println("Coefficients for target column $target_col already exist")
+	    continue
+	end
         formula_str = "$(target_col) ~ " * join(predictors, " + ")
+	formula_str = "$(target_col) ~ " * join(vcat(names(df_R), names(df_Ru)), " + ")
         formula_expr = Meta.parse("formula = @formula($formula_str)")
         formula = eval(formula_expr)
 	model = TDist
@@ -350,7 +355,11 @@ animal = first(animals)
 
 	# TESTING
 	paramset = "all"
-	@showprogress "paramset" for paramset in ["S1", "S2", "Cavg", "wpli_avg", "phi_cos", "phi_sin", (keys(bands)|>collect) ..., "all"]
+	@showprogress "paramset" for paramset in ["R", "Ru", "all"]
+
+	    if haskey(stat_dict, (animal, target_col, paramset))
+		continue
+	    end
 
 	    preds = if paramset == "all"
 		predictors
@@ -400,11 +409,11 @@ animal = first(animals)
     end
     next!(prog)
     # Save the dictionaries to disk
-    serialize(joinpath(folder, "efizz_coef_dict.jls"), coef_dict)
-    serialize(joinpath(folder, "efizz_models_dict.jls"), models_dict)
-    serialize(joinpath(folder, "efizz_inds_dict.jls"), inds_dict)
-    serialize(joinpath(folder, "efizz_stat_dict.jls"), stat_dict)
-    serialize(joinpath(folder, "efizz_predictions_df.jls"), predictions_df)
+    serialize(joinpath(folder, "efizzr_coef_dict.jls"), coef_dict)
+    serialize(joinpath(folder, "efizzr_models_dict.jls"), models_dict)
+    serialize(joinpath(folder, "efizzr_inds_dict.jls"), inds_dict)
+    serialize(joinpath(folder, "efizzr_stat_dict.jls"), stat_dict)
+    serialize(joinpath(folder, "efizzr_predictions_df.jls"), predictions_df)
 end
 
 
@@ -440,7 +449,7 @@ end
 for (key, chns) in models_dict
     models_dict[key] = replace_names(chns, mode=3)
 end
-serialize(joinpath(folder, "efizz_models_dict.jls"), models_dict)
+serialize(joinpath(folder, "efizzr_models_dict.jls"), models_dict)
 
 
 stat_df = stat_dict_to_dataframe(stat_dict, true, :commsub)
@@ -457,7 +466,7 @@ predictors = Symbol.(replace.(string.(propertynames(df_efizz)), trades...))
 c_df = extract_coefficients(models_dict, string.(predictors); 
     target_prop=:commsub, splitter_props=[:Coefficient, :target_prop])
 append!(coefs_df, c_df, cols=:union)
-serialize(joinpath(folder, "efizz_coefs_df.jls"), coefs_df)
+serialize(joinpath(folder, "efizzr_coefs_df.jls"), coefs_df)
 
 coefs_df.ValueAbs = abs.(coefs_df.Value)
 coefs_df.orthostate = map(x->
@@ -470,7 +479,7 @@ begin
 		"Orthogonal"
 	end
 end, coefs_df.target_prop1)
-serialize(joinpath(folder, "efizz_coefs_df.jls"), coefs_df)
+serialize(joinpath(folder, "efizzr_coefs_df.jls"), coefs_df)
 
 print("Adding lindist_bin_mid column...")
 # Coefficients by animal and behavior
@@ -487,5 +496,5 @@ Cdf = begin
     Dict(names(Cdf) .=> eachcol(Cdf))
 end
 Cdf = pd.DataFrame(Cdf)
-Cdf.to_csv(joinpath(folder, "efizz_coefs_df.csv"))
+Cdf.to_csv(joinpath(folder, "efizzr_coefs_df.csv"))
 
