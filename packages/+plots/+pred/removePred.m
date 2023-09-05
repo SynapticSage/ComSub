@@ -7,12 +7,14 @@ end
 optDim = nd.fieldGet(tmp,'optDimReducedRankRegress');
 optDim = floor(median(optDim, 1));
 optDim = max(optDim,[],'all');
-patternnames = Option.patternNames;
+patternnames = Option(1).patternNames(1:size(Patterns,ndims(Patterns)));
+
+ugenH = shortcut.genH_shorter(unique([Patterns.generateH]));
 
 %%
 % Run all of them
 rt = table();
-for genh = ["spec", "coh", "wpli"]
+for genh = ugenH
     [Pat, opt] = munge.getH(Patterns, Option, genh);
     assert(~isempty(Pat), 'No patterns found for %s', genh);
     Patterns_AllAnimals = squeeze(Pat);

@@ -1,4 +1,5 @@
 function regionalPerf(combinedPatternsTable, singlePredTable, varargin)
+% regionalPerf
 
 const = option.constants();
 ip = inputParser();

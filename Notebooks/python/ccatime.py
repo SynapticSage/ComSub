@@ -300,3 +300,52 @@ def plot_windows(windows, quantile, w):
 
 plot_windows(captured_windows, quantile, w)
 
+# Change of basis illustration
+plt.close()
+fig, ax = plt.subplots(1,2, figsize=(10, 10))
+plt.sca(ax[0])
+samp = df.sample(1_000)
+ax[0].axis('equal')
+# plot x=y in black dashed line
+mx = max(samp['U1'].max(), samp['V1'].max())
+plt.plot([-mx, mx], [-mx, mx], color='black')
+# plot x=-y in black dashed line
+plt.plot([mx, -mx], [-mx,mx], color='black')
+sns.scatterplot(samp, x="U1", y="V1", ax=ax[0])
+samp["R"] = (samp['U1'] + samp['V1'])/np.sqrt(2)
+samp["Ortho"] = (samp['U1'] - samp['V1'])/np.sqrt(2)
+plt.sca(ax[1])
+# plot x=0 black, y=0 lback
+mx = max(samp['R'].max(), samp['Ortho'].max())
+plt.plot([-mx, mx], [0, 0], color='black')
+plt.plot([0, 0], [-mx, mx], color='black')
+sns.scatterplot(samp, x="R", y="Ortho", ax=ax[1])
+ax[1].axis('equal')
+
+
+# Change of basis illustration
+col1 = "U1"
+col2 = "V1"
+plt.close()
+fig, ax = plt.subplots(1,2, figsize=(10, 10))
+plt.sca(ax[0])
+samp = df.sample(500)
+ax[0].axis('equal')
+# plot x=y in black dashed line
+mx = max(samp[col1].max(), samp[col2].max())
+plt.plot([-mx, mx], [-mx, mx], color='black')
+# plot x=-y in black dashed line
+plt.plot([mx, -mx], [-mx,mx], color='black')
+sns.scatterplot(samp, x=col1, y=col2, ax=ax[0])
+samp["R"] = (samp[col1] + samp[col2])/np.sqrt(2)
+samp["Ortho"] = (samp[col1] - samp[col2])/np.sqrt(2)
+plt.sca(ax[1])
+# plot x=0 black, y=0 lback
+mx = max(samp['R'].max(), samp['Ortho'].max())
+plt.plot([-mx, mx], [0, 0], color='black')
+plt.plot([0, 0], [-mx, mx], color='black')
+sns.scatterplot(samp, x="R", y="Ortho", ax=ax[1])
+ax[1].axis('equal')
+plt.suptitle(f"Change of basis for {col1} and {col2}")
+plt.savefig(f"/Volumes/MATLAB-Drive/Shared/figures/midpattern=true/change_of_basis_{col1}_{col2}.png")
+plt.savefig(f"/Volumes/MATLAB-Drive/Shared/figures/midpattern=true/change_of_basis_{col1}_{col2}.pdf")
