@@ -163,8 +163,8 @@ if Option.analysis.cca % 🔀
     % Event analysis ------------------------------------------------------
     % (append cca commsub levels during events)
     % 藺
-    % event_anal  = ... 
-    %      analysis.cca.event_analysis(Patterns_overall, Spk, Events, Option, behavior);
+    event_anal  = ... 
+         analysis.cca.event_analysis(Patterns_overall, Spk, Events, Option, behavior);
     % for i = 1:Option.nPatternAndControl+1
     %     plots.plot_event_values(event_anal(2,i), 'figAppend', figAppend + "_" + i);
     % end
@@ -174,12 +174,12 @@ if Option.analysis.cca % 🔀
     % Create table of results ---------------------------------------------
     % (create a table regarding cca versus efizz and behavior)
     % 藺 ccatime
-    % efizz = load(Option.animal + "spectralBehavior.mat", "efizz");
-    % efizz = efizz.efizz;
-    % table.analyses.ccatime(Patterns_overall, Spk, efizz, Option, behavior,...
-    %                       'behaviorColumns', ...
-    % {'vel', 'accel', 'lindist', 'rewarded', ...
-    % 'trajbound','inBoundChoiceTimes','outBoundChoiceTimes','rewardTimes'});
+    efizz = load(Option.animal + "spectralBehavior.mat", "efizz");
+    efizz = efizz.efizz;
+    table.analyses.ccatime(Patterns_overall, Spk, efizz, Option, behavior,...
+                          'behaviorColumns', ...
+    {'vel', 'accel', 'lindist', 'rewarded', ...
+    'trajbound','inBoundChoiceTimes','outBoundChoiceTimes','rewardTimes'});
     % ---------------------------------------------------------------------
     % Triggered spectrogram u ---------------------------------------------
     % (create compute triggered spectrograms for commsubs)

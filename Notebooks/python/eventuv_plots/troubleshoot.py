@@ -62,3 +62,10 @@ mplcyberpunk.make_lines_glow()
 g.map_lower(lambda *pos,**kws : plt.cla())
 plt.suptitle("Pairplot of patterns, genH, and highlow - df_matrix")
 plt.pause(0.1)
+
+
+df_clean.groupby('patterns').pattern_cca2.value_counts().sort_index()
+
+df_clean.groupby(['genH', 'highlow']).animal.value_counts()
+
+df_clean.groupby('genH_highlow').highlow.value_counts()

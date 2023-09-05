@@ -98,7 +98,9 @@ else
                                 ["animal", "generateH", "preProcess_zscore"]);
     Option = otherData{1}.Option;
 end
+disp("Took " + toc + " seconds to load patterns")
 
+disp("Post-processing")
 assert(~isempty(Option), "Data is empty -- downstream code will fail")
 Patterns = nd.merge(Patterns, Option, 'only', {'animal', 'generateH', 'genH_name'}, ...
                                             'broadcastLike', true,...
@@ -125,6 +127,7 @@ for a = 1:nDataset
     numDimsUsedForPrediction{a} = 1:min(nSource(a), nTarget(a));
 end
 regions = [const.HPC, const.PFC];
+disp("Post-processing complete")
 
 % No idea why sometimes this is fulla nans
 if any(ismissing(Option(1).patternNamesFull))
@@ -137,6 +140,7 @@ end
 % little check
 % [[Patterns(:, 1,1,1,1,1,1).animal]',    [Option(:,1,1,1,1,1).animal]']
 % [[Patterns(:, 1,1,1,1,1,1).generateH]', [Option(:,1,1,1,1,1).generateH]']
+disp("Reshaping")
 [~,I]  =sortrows([[Option.generateH]; [Option.animal]]');
 Option = Option(I);
 Patterns = Patterns(I,:,:,:,:,:,:);
@@ -146,6 +150,7 @@ O = munge.reshapeByLabels_v2(Option, 1,   ["genH_name","animal"]);
 Patterns = P;
 Option = O;
 clear Out P O
+disp("Reshaping complete")
 
 %% Calculate the pattern 
 T = query.getPatternTable(Patterns, Option);

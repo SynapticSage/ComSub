@@ -8,7 +8,7 @@ hash = store.gethash(Option);
 
 thisFile = fullfile(hashdefine(), hash + ".mat");
 disp("Saving ...");
-tic; save(thisFile, '-struct', 'saveVars','-v7.3');
+tic; save(thisFile, '-struct', 'saveVars','-v7.3', '-nocompression');
 disp("... " + toc + " seconds");
 % link most recent state
 pushd(hashdefine());
@@ -21,14 +21,14 @@ popd()
 % save raw?
 if Option.saveRaw
 	disp("Saving raw...");
-	tic; save(thisFile, "Events", "Spk",'-v7.3', '-append');
+	tic; save(thisFile, "Events", "Spk",'-v7.3', '-append', '-nocompression');
 	disp("... " + toc + " seconds");
 else
 	disp("Saving raw scrubbed")
 	Events = nd.flexrmfield(Events, ["H","Hvals","H","times"]);
-	tic; save(thisFile, "Events", '-v7.3', '-append');
+	tic; save(thisFile, "Events", '-v7.3', '-append', '-nocompression');
 	disp("... " + toc + " seconds");
 end
 
 datetime_=datetime();
-save(thisFile, "datetime_",'-v7.3', '-append');
+save(thisFile, "datetime_",'-v7.3', '-append', '-nocompression');

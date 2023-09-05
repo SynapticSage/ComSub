@@ -144,7 +144,6 @@ r_withpfc_patterns = [Fig2.b.r_withpfc_patterns{:}];
 [h_hpc, p_hpc] = kstest2(r_withhpc_patterns, Fig2.a.all.all_pairs_withhpc);
 [h_pfc, p_pfc] = kstest2(r_withhpc_patterns, Fig2.a.all.all_pairs_withpfc);
 
-
 %% 
 % Predicition Performance
 

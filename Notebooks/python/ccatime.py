@@ -16,7 +16,8 @@ from tqdm import tqdm
 tqdm.pandas()
 from scipy.stats import f
 import multiprocessing, dill
-folder = '/Volumes/MATLAB-Drive/Shared/figures/intermediate/tables/'
+intermediate = "midpattern=true"
+folder = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/'
 name   = 'powerccatime'
 def directionality_test(granger_func, x, y, lag_order, xtest=None, ytest=None):
     f_stat_xy, p_value_xy, r2_xy, r2_y, r2_xy_p = granger_func(x, y, lag_order, xtest, ytest)

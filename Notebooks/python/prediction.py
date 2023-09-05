@@ -6,7 +6,15 @@ import statsmodels.api as sm
 from statsmodels.formula.api import ols
 
 # Load the data from the CSV file
-data = pd.read_csv('/Volumes/MATLAB-Drive/Shared/figures/tables/fig2_prediction.csv')
+file = '/Volumes/MATLAB-Drive/Shared/figures/midpattern=true/tables/fig2_prediction.csv'
+# Print when this file was last modified as XX-XX-XXXX XX:XX:XX
+print(f'Last modified: {time.ctime(os.path.getmtime(file))}')
+# Print creation
+print(f'Created: {time.ctime(os.path.getctime(file))}')
+data = pd.read_csv(file)
+figfolder = os.path.join(*os.path.split(os.path.dirname(file))[0:-1], 'python_predictions')
+if not os.path.exists(figfolder):
+    os.makedirs(figfolder)
 data.loc[:,'highlow'] = data.name.apply(lambda x: 'high' if 'control' not in x else 'low')
 # Display the first few rows of the dataframe
 data.head()
@@ -32,6 +40,10 @@ hh_control_data.attrs['name']    = 'hpc-hpc control'
 plt.ion()
 
 # ----------------------------------------
+# SHOWS: Unbalanced
+# PLOT: Characterize the data
+# INFO: HELPFUL
+#-----------------------------------------
 
 def characterize(data):
     fig, axes = plt.subplots(2, 2, figsize=(15, 10))
@@ -55,6 +67,9 @@ def characterize(data):
     plt.tight_layout()
     plt.show()
 characterize(hpc_pfc_data)
+plt.savefig(os.path.join(figfolder, 'characterize_hpc_pfc_data.png'))
+plt.savefig(os.path.join(figfolder, 'characterize_hpc_pfc_data.pdf'))
+plt.close()
 
 # ----------------------------------------
 
@@ -124,6 +139,9 @@ def continuous_binned_characterize(data):
     plt.show()
 
 continuous_binned_characterize(hpc_pfc_data)
+plt.savefig(os.path.join(figfolder, 'continuous_binned_characterize_hpc_pfc_data.png'))
+plt.savefig(os.path.join(figfolder, 'continuous_binned_characterize_hpc_pfc_data.pdf'))
+plt.close()
 
 
 # ----------
@@ -154,11 +172,13 @@ def performance_distribution_split(data, quantile_xlim=0.99):
         ax.set_ylabel('Frequency')
         ax.set_xlim(filtered_data['Var8'].quantile(1 - quantile_xlim),
                     filtered_data['Var8'].quantile(quantile_xlim))
-        ax.legend()
+        # ax.legend()
     plt.tight_layout()
     plt.show()
 
 performance_distribution_split(hpc_pfc_data, quantile_xlim=0.99)
+plt.savefig(os.path.join(figfolder, 'performance_distribution_split_hpc_pfc_data.png'))
+plt.savefig(os.path.join(figfolder, 'performance_distribution_split_hpc_pfc_data.pdf'))
 
 # ----------
 # PLOT: Perf dist by genH and direction
@@ -182,6 +202,8 @@ def full_dist_boxplot(data):
     plt.show()
 
 full_dist_boxplot(hpc_pfc_data)
+plt.savefig(os.path.join(figfolder, 'full_dist_boxplot_hpc_pfc_data.png'))
+plt.savefig(os.path.join(figfolder, 'full_dist_boxplot_hpc_pfc_data.pdf'))
 
 
 # ----------
@@ -205,10 +227,10 @@ print(anova_table)
 
 # ----------
 
-def calculate_means_of_performance(df):
-    # Define the number of samples and sample size
     num_samples = 1000
     sample_size = 500
+def calculate_means_of_performance(df):
+    # Define the number of samples and sample size
 
     df = hh_noncontrol_data
     name = df.attrs['name']
@@ -240,6 +262,10 @@ def calculate_means_of_performance(df):
     plt.legend()
     plt.show()
 
+calculate_means_of_performance(hpc_pfc_data)
+plt.savefig(os.path.join(figfolder, 'calculate_means_of_performance_hpc_pfc_data.png'))
+plt.savefig(os.path.join(figfolder, 'calculate_means_of_performance_hpc_pfc_data.pdf'))
+
 # ----------
 
 # Store the dataframes in a list
@@ -261,15 +287,15 @@ for df, ax in zip(dfs, axes):
         power_sample = df['Var8'][df['genH'] == 'power'].sample(sample_size, replace=True)
         power_means.append(power_sample.mean())
 
-        wpli_sample = df['Var8'][df['genH'] == 'wpli'].sample(sample_size, replace=True)
-        wpli_means.append(wpli_sample.mean())
+        # wpli_sample = df['Var8'][df['genH'] == 'wpli'].sample(sample_size, replace=True)
+        # wpli_means.append(wpli_sample.mean())
 
         coherence_sample = df['Var8'][df['genH'] == 'coherence'].sample(sample_size, replace=True)
         coherence_means.append(coherence_sample.mean())
 
     # Create a histogram with transparency
     ax.hist(power_means, bins=50, alpha=0.5, label='power')
-    ax.hist(wpli_means, bins=50, alpha=0.5, label='wpli')
+    # ax.hist(wpli_means, bins=50, alpha=0.5, label='wpli')
     ax.hist(coherence_means, bins=50, alpha=0.5, label='coherence')
     ax.set_title(f'{name}: Distribution of Sample Means')
     ax.set_xlabel('Sample Mean of Performance (Var8)')
@@ -278,4 +304,5 @@ for df, ax in zip(dfs, axes):
 
 plt.tight_layout()
 plt.show()
-
+plt.savefig(os.path.join(figfolder, 'calculate_means_of_performance_all_data.png'))
+plt.savefig(os.path.join(figfolder, 'calculate_means_of_performance_all_data.pdf'))

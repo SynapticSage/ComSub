@@ -457,13 +457,13 @@ stat_df = stat_dict_to_dataframe(stat_dict, true, :commsub)
 
 animal = first(animals)
 coefs_df = DataFrame()
-if :efizz \notin propertynames(Main)
+if :efizz ∉ propertynames(Main)
     data = get_dataset(animal)
     @unpack U, V, R, Ru, uv_time, spikeRateMatrix, df_R, df_Ru, df_efizz = data
 end
 println("Extracting coefficients for animal $animal...")
-predictors = Symbol.(replace.(string.(propertynames(df_efizz)), trades...))
-c_df = extract_coefficients(models_dict, string.(predictors); 
+predictors = [names(df_R); names(df_Ru)]
+c_df = extract_coefficients(models_dict, string.(predictors);
     target_prop=:commsub, splitter_props=[:Coefficient, :target_prop])
 append!(coefs_df, c_df, cols=:union)
 serialize(joinpath(folder, "efizzr_coefs_df.jls"), coefs_df)

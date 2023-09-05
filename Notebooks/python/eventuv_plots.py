@@ -8,7 +8,6 @@ from statsmodels.api import qqplot_2samples
 from tqdm import tqdm
 tqdm.pandas()
 
-
 match_mode = False
 intermediate = "midpattern=true"
 figfolder = f"/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/eventuv_python/"
@@ -159,6 +158,9 @@ def prep_uv_magnitude_over_time(df_matrix, time='events'):
 
 # Load the provided CSV file
 df = pd.read_parquet(origin)
+# Print the modificiation time of the origin file as XX-XX-XXXX XX:XX:XX
+import arrow
+print("Origin file last modified on {}".format(arrow.get(os.path.getmtime(origin)).format('MM-DD-YYYY HH:mm:ss')))
 # Display the first few rows of the dataframe
 df.head()
 # Function to calculate the distance from a point to the line y = x
@@ -214,8 +216,11 @@ df_clean['on_commsub_mag'] = df_clean['on_commsub'] * df_clean['distance_to_orig
 df_summary = df_clean.groupby(['genH', 'patterns', 'uv_components', 'animal', 'events']).mean().reset_index()
 df_clean['off_commsub_mag'] = df_clean['distance_to_line'].abs()
 df_clean['on_over_off'] = df_clean['on_commsub_mag'] / df_clean['distance_to_origin'].abs()
-f.patterns.max() == 9:
+if df.patterns.max() == 9:
     mapping = {1:'high', 2:'high', 3:'high', 4:'low', 5:'low', 6:'low', 7:'mid', 8:'mid', 9:'mid'}
+    df_clean['highlow'] = df_clean['patterns'].map(mapping)
+else:
+    mapping = {1:'high', 2:'high', 3:'high', 4:'low', 5:'low', 6:'low'}
     df_clean['highlow'] = df_clean['patterns'].map(mapping)
 # Create a composite column combining 'genH' and 'highlow'
 df_clean['genH_highlow'] = df_clean['genH'].astype(str) + "_" + df_clean['highlow']
@@ -228,6 +233,8 @@ overall_pattern = df_clean.patterns.max() + 1
 mapping = {int(i):(int(i)-1)%3+1 for i in range(1, int(df.patterns.max()+1))}
 mapping[overall_pattern] = np.nan
 df_clean['pattern_class'] = df_clean['patterns'].map(mapping)
+mapping = {1:'theta', 2:'delta', 3:'ripple'}
+df_clean['pattern_class_name'] = df_clean['pattern_class'].map(mapping)
 
 # FILTER # WARNING: if you use 'match' below, you must comment this out
 # df_clean = df_clean.query(f'pattern_cca1 == 2 & pattern_cca2 == {df.patterns.max()}')
@@ -251,15 +258,16 @@ df_clean['abs_perpendicular_score'] = df_clean['perpendicular_score'].abs()
 df_clean['proj_over_perp'] = df_clean['abs_projection_score'] / df_clean['abs_perpendicular_score']
 df_clean['abs_proj_over_perp'] = df_clean['abs_projection_score'] / df_clean['abs_perpendicular_score']
 index = ['animal','genH', 'genH_highlow', 'highlow', 'patterns', 'event_time']
+descfield = lambda x: df_clean.groupby(['genH', 'highlow'])[x].describe()
 
 
-# Subset
+# BUG: Subset
 df_clean = df_clean.query('pattern_cca1 == 2') # 1 is hpchpc
 if match_mode:
     tmp = []
     for i in range(1, int(df_clean.patterns.max())):
         tmp.append(df_clean.query(f'pattern_cca2 == {i} & patterns == {i}'))
-    df_clean = pd.concat(tmp)
+    df_match = pd.concat(tmp)
 else:
     df_clean = df_clean.query(f'pattern_cca2 == {df_clean.patterns.max()}')
 
@@ -276,6 +284,31 @@ for i in range(1, 6):
     df_matrix[f"r_over_p_{i}"] = df_matrix[f"r_{i}_abs"] / df_matrix[f"p_{i}_abs"]
     df_matrix[f"u_{i}"] = df_matrix[f"{i}_u"]
     df_matrix[f"v_{i}"] = df_matrix[f"{i}_v"]
+
+
+# Let's create histograms of the projection score and perpendicular score
+# for genH_name and for highlow
+tmp = df_clean.query("highlow != 'mid' & pattern_class == 1").sample(20_000)
+g=sns.FacetGrid(data=tmp, col='genH', hue='highlow', height=4, aspect=1)
+g.map(sns.histplot, 'abs_projection_score', alpha=0.5, stat='density', cumulative=True)
+g.map(lambda *pos, **kws: plt.axvline(0, color='black', linestyle='--'))
+g.add_legend()
+for ax in g.axes.flatten():
+    ax.set_ylim(0, 1)
+    ax.set_xlim(-10, 10)
+g=sns.FacetGrid(data=tmp, col='genH', hue='highlow', height=4, aspect=1)
+g.map(sns.histplot, 'abs_perpendicular_score', alpha=0.5, stat='density', cumulative=True)
+g.map(lambda *pos, **kws: plt.axvline(0, color='black', linestyle='--'))
+g.add_legend()
+for ax in g.axes.flatten():
+    ax.set_ylim(0, 1)
+    ax.set_xlim(-5, 5)
+
+df_clean.groupby(['genH', 'highlow'])['projection_score'].apply(lambda x: x.skew())
+df_clean.groupby(['genH', 'highlow'])['perpendicular_score'].apply(lambda x: x.skew())
+df_clean.groupby(['genH', 'highlow'])['projection_score'].apply(lambda x: x.kurtosis())
+df_clean.groupby(['genH', 'highlow'])['perpendicular_score'].apply(lambda x: x.kurtosis())
+
 
 
 # Import the ipython run magic as a function

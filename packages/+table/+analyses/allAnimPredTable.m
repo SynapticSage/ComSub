@@ -7,7 +7,8 @@ function [combinedPatternsTable, singlePredTable] = allAnimPred(Patterns, Option
     % Calculate the product of the dimensions to collapse                                                                                                                                                                                                                       
     collapsed_size = prod(sz(1:2));                                                                                                                                                                                                                                            
     % Reshape the array
-    ReshapedPatterns = squeeze(reshape(Patterns, [collapsed_size, sz(end-2:end)]));
+    % ReshapedPatterns = squeeze(reshape(Patterns, [collapsed_size, sz(end-2:end)]));
+    ReshapedPatterns = Patterns(:);
     % Preallocate growing vectors
      % Same code as before until line:
     % combinedPatternsTable   = table();
@@ -24,7 +25,7 @@ function [combinedPatternsTable, singlePredTable] = allAnimPred(Patterns, Option
 
     P = ProgressBar(numel(inds));
 
-    parfor p = inds'
+    for p = inds'
         % Existing code here
         % Get current nTarget and nSource
         currSource = ReshapedPatterns(p).X_source';
@@ -65,8 +66,8 @@ function [combinedPatternsTable, singlePredTable] = allAnimPred(Patterns, Option
             newtab = table(animal, genH, direction, nSource, nTarget, iSource, iTarget, perf, mu, dev);
             singlePredTable{p}{is} = newtab;
         end
-        updateParallel([], pwd);
-        % P.step([], [], []);
+        % updateParallel([], pwd);
+        P.step([], [], []);
     end
     P.release();
     combinedPatternsTable = vertcat(combinedPatternsTable{:});
@@ -88,4 +89,4 @@ function [combinedPatternsTable, singlePredTable] = allAnimPred(Patterns, Option
         writetable(singlePredTable, fullfile(figuredefine("tables"), 'fig2_singlePrediction.csv'));
     end
     combinedPatternsTable = readtable(fullfile(figuredefine("tables"), 'fig2_prediction.csv'));
-    singlePredTable = readtable(fullfile(figuredefine("tables"), 'fig2_singlePrediction.csv'));
+    % singlePredTable = readtable(fullfile(figuredefine("tables"), 'fig2_singlePrediction.csv'));
