@@ -20,7 +20,7 @@ usegpu = false;
 # n_chains = 16;
 n_chains = 1;
 # Number of samples
-n_samples = Int(round(150/n_chains));
+n_samples = Int(round(30/n_chains));
 numsamprow = 25_000;
 # Threads.nthreads() = n_chains;
 # addprocs(n_chains-1)
@@ -149,7 +149,6 @@ function generate_frequency_bands(frequencies::Vector{Float64}, downsampling::In
     return new_bands
 end
 
-new_bands = generate_frequency_bands(vec(efizz["f"]), 3)
 
 
 
@@ -237,6 +236,7 @@ function get_dataset(animal::String)
     global uv_time = mat["uv_time"]
     global spikeRateMatrix = mat["spikeRateMatrix"]
     efizz = matefizz["efizz"]
+    global new_bands = generate_frequency_bands(vec(efizz["f"]), 3)
     efizz["phi_cos"] = cos.(efizz["phi"])
     efizz["phi_sin"] = sin.(efizz["phi"])
     efizza_var_to_use = ["S1", "S2", "Cavg", "wpli_avg", "phi_cos", "phi_sin"]
@@ -369,16 +369,17 @@ animal = first(animals)
     println("Number of efizz predcitors: ", length(predictors))
     prog = Progress(length(vcat(names(df_R), names(df_Ru))), 1, "Processing columns...")
     println("Regressing each column...")
-    target_col = first(vcat(names(df_R), names(df_Ru)))
-
-    target_col = first(vcat(names(df_R), names(df_Ru)))
-    @showprogress "targets" for target_col in vcat(names(df_R), names(df_Ru))
+    target_cols = vcat(names(df_R)[1:2], names(df_Ru)[1:2])
+    target_col = first(target_cols)
+    @showprogress "targets" for target_col in target_cols
 
 	if !haskey(coef_dict, (animal, target_col))
 	    formula_str = "$(target_col) ~ " * join(predictors, " + ")
 	    formula_expr = Meta.parse("formula = @formula($formula_str)")
 	    formula = eval(formula_expr)
-	    md = turing_model(formula, train_data) # linear regression
+	    # md = turing_model(formula, train_data) # linear regression
+            # let's use an error more appropriate for lfp
+            md = turing_model(formula, train_data, Gamma()) # linear regression
 
 	    tries = 5
 	    while tries > -1
@@ -406,7 +407,7 @@ animal = first(animals)
 	# TESTING
 	paramset = "all"
         band_keys = (keys(bands)|>collect)|>x->replace.(string.(x), trades...)
-	@showprogress "paramset" for paramset in [band_keys..., "all"]
+	@showprogress "paramset" for paramset in ["all", "S1", "S2", "Cavg", "phi", band_keys..., ]
 	    if haskey(stat_dict, (animal, target_col, paramset))
 		continue
 	    end
@@ -416,7 +417,7 @@ animal = first(animals)
 		[x for x in predictors if occursin(paramset, x)]
 	    end
 	    if isempty(preds)
-		@infiltrate
+                continue
 	    end
 	    # Testing
 	    stats = predict_and_compute_stats_v2(chns, test_data, preds, predictors, target_col)

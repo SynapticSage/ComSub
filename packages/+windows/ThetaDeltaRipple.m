@@ -110,15 +110,18 @@ if Option.oldControlBehavior
 else
     Hc = Events.H;
 end
+assert(~(~Option.lowerControl && Option.oldControlBehavior),...
+    "Option.lowerControl and Option.oldControlBehavior are incompatible")
 
 [Hc_cellOfWindows, Hc_cutoffs] = ...
-    windows.make(Events.times,  quantileControl,...  % add windows of control patterns
+    windows.make(Events.times, ....
+    quantileControl,...  % add windows of control patterns
     Hc(:,THETA:DELTA), Option,... % Selects less than quantile
     'outlierQuantile', Option.thetadelta_outlierQuantile,...
     'positiveDerivativeCheck', positiveDerivativeCheck, ...
     ... under old controls, flag will select from shuffled times, under new, flag will select
     ... lower than quantile
-    'higherThanQuantile', Option.oldControlBehavior);
+    'higherThanQuantile', Option.oldControlBehavior); % if old behavior, then we're grabbing from shuffle values
 
 
 % -----------------------

@@ -45,4 +45,3 @@ function plotIndividSamples(combinedPatternsTable, Option, genH)
         saveas(gcf,figuredefine("new","examplepredsamps", "exampe_pred_samps.pdf"))
     end
 end
-

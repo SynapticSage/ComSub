@@ -2,7 +2,7 @@ if ~exist('T', 'var')
     PreambFigs; % Load data
     T(ismember(T.hash, keys), ["genH_name", "preProcess_zscore", "timestamp","animal"])
     % Checkpoint to /Volumes/Ark/commsubspace/
-    save(datadefine("tmpT.mat"), 'T')
+    save(datadefine("tmpT_wtf.mat"), 'T')
     T.control = replace(T.control, ["control", "pattern activity"], ["low", "high"]);
 end
 
@@ -22,6 +22,8 @@ plots.grm.compare_types(T, "power",     "wpli",      "hpc-hpc", "axis", 'square'
 plots.grm.compare_types(T, "power",     "wpli",      "hpc-pfc", "axis", 'square');
 plots.grm.compare_types(T, "coherence", "wpli",      "hpc-hpc", "axis", 'square');
 plots.grm.compare_types(T, "coherence", "wpli",      "hpc-pfc", "axis", 'square');
+
+set(gcf, 'Position',  [100, 100, 1000, 1000])
 
 %% SHOW PREDICTIVE DIMENSIONS FOR EACH PATTERN
 plots.grm.plotPattern(T, "power",     "hpc-pfc");

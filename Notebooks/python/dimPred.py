@@ -1,3 +1,4 @@
+from itertools import product
 import numpy as np
 import pandas as pd
 import os
@@ -5,20 +6,58 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.utils import resample
 from tqdm import tqdm
+import time
 
 plt.ion()
-savefolder='/Volumes/MATLAB-Drive/Shared/figures/python/dimPred/'
+intermediate_folder = "midpattern=true"
+savefolder = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate_folder}/python/dimPred/'
+file       = f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate_folder}/tables/predDim.csv'
 if not os.path.exists(savefolder):
     os.makedirs(savefolder)
 
+# Print dataset mtime as XX-XX-XXXX
+print(f'Dataset mtime: {time.strftime("%m-%d-%Y", time.localtime(os.path.getmtime(file)))}')
 # Load the dataset
-df = pd.read_csv('/Volumes/MATLAB-Drive/Shared/figures/tables/predDim.csv')
+df = pd.read_csv(file)
 u = {key:np.unique(df[key]) for key in df.keys()}
-df.loc[:,'highlow'] = df.name.apply(lambda x: 'high' if 'control' not in x else 'low')
-# Display the first few rows of the dataset
-df.head()
-df.loc[:,'patternname'] = df.name.apply(lambda x: x.replace('-control', ''))
+def classify_highlow(name):
+    if 'control' in name:
+        return 'low'
+    elif 'mid' in name:
+        return 'mid'
+    else:
+        return 'high'
+def classify_rhythm(name):
+    if 'theta' in name:
+        return 'theta'
+    elif 'delta' in name:
+        return 'delta'
+    elif 'ripple' in name:
+        return 'ripple'
+df.loc[:,'highlow'] = df.name.apply(classify_highlow)
+df.loc[:,'rhythm'] = df.name.apply(classify_rhythm)
 df.query('genH != "wpli"', inplace=True)
+df.head()
+
+# pairplot to understand
+sns.pairplot(df, vars=['iDataset', 'animal', 'genH', 'highlow', 'rhythm'])
+
+# ------------------------------
+def query_dataframe(df, **kwargs):
+    """
+    Query a DataFrame based on key-value pairs.
+    
+    Parameters:
+        df (pd.DataFrame): The DataFrame to query.
+        **kwargs: Arbitrary keyword arguments representing the columns and their values to filter by.
+        
+    Returns:
+        pd.DataFrame: The filtered DataFrame.
+    """
+    query_str = ' & '.join([f"{key} == '{value}'" for key, value in kwargs.items()])
+    return df.query(query_str)
+
+
 
 # -------------------------------------------------------
 # Plot the samples of MEA vs. dimension for each dataset
@@ -654,3 +693,172 @@ def plot_3d_bootstrap_means(df, split_by_name=False, num_samples=1000, sample_si
 
 plot_3d_bootstrap_means(df.query('direction == "hpc-hpc"'), split_by_name=True) 
 plot_3d_bootstrap_means(df.query('direction == "hpc-pfc"'), split_by_name=True)
+
+
+def plot_dims_vs_mea_grouped(df, ylim=None):
+    """
+    Plot dims vs mea for grouped DataFrame based on specific columns.
+    
+    Parameters:
+        df (pd.DataFrame): The filtered DataFrame to plot.
+    """
+    # Identify the available columns for grouping
+    group_cols = [x for x in ['genH', 'animal', 'direction', 'highlow', 'rhythm', 'iP'] if x in df.columns]
+    
+    # Group by the available columns
+    grouped_df = df.groupby(group_cols)
+    
+    grayscale_sequence = plt.get_cmap('Greys')(np.linspace(0.2, 0.8, len(grouped_df)))
+    # color_sequence = plt.get_cmap('tab10')(np.linspace(0, 1, len(grouped_df)))
+    with plt.rc_context({'axes.prop_cycle': plt.cycler(color=grayscale_sequence)}):
+        plt.figure(figsize=(10, 6))
+        for name, group in grouped_df:
+            # Extract relevant data
+            dims = group['dims']
+            mea = group['mea']
+            err = group['err']
+            optDim = group['optDim'].iloc[0]  # Assuming optDim is the same for all rows in the group
+            
+            # Plotting
+            plt.errorbar(dims, mea, yerr=err, fmt='o-', label='MEA')
+            plt.axvline(x=optDim, color='r', linestyle='--', label=f'OptDim = {optDim}')
+            plt.fill_between(dims, mea - err, mea + err, color='gray', alpha=0.2)
+            
+        plt.xlabel('Dimensions')
+        plt.ylabel('MEA')
+        plt.title(f"{name}")
+        if ylim:
+            plt.gca().set(ylim=ylim)
+        if len(grouped_df) > 1 and len(grouped_df) < 10:
+            plt.legend()
+        plt.show()
+
+
+# Test the function with the sample DataFrame
+filtered_df = query_dataframe(df, genH='coherence', animal='ER1', direction='hpc-pfc', highlow='high', rhythm='theta')
+filtered_df
+# Test the modified function with a filtered DataFrame (note: 'iP' is not in our sample DataFrame)
+plot_dims_vs_mea_grouped(filtered_df)
+
+# Generate all combinations of unique values for relevant fields (excluding 'iP')
+from itertools import product
+all_combinations = product(
+    df['genH'].unique(), 
+    df['animal'].unique(), 
+    df['direction'].unique(), 
+    df['highlow'].unique(), 
+    df['rhythm'].unique()
+)
+all_combinations=list(all_combinations)
+
+# Loop through each combination
+for genH, animal, direction, highlow, rhythm in tqdm(all_combinations, total=len(all_combinations)):
+    # Query DataFrame based on the combination
+    filtered_df = query_dataframe(df, genH=genH, animal=animal, direction=direction, highlow=highlow, rhythm=rhythm)
+    
+    # If the filtered DataFrame is not empty, plot it
+    if not filtered_df.empty:
+        plot_dims_vs_mea_grouped(filtered_df)
+        plt.savefig(os.path.join(savefolder, f'dims_vs_mea_{genH}_{animal}_{direction}_{highlow}_{rhythm}.png'), dpi=300)
+        plt.savefig(os.path.join(savefolder, f'dims_vs_mea_{genH}_{animal}_{direction}_{highlow}_{rhythm}.pdf'))
+
+
+import numpy as np
+
+def plot_coherence_vs_power(df):
+    """
+    Generate scatter plots for mea_coherence vs mea_power, with optDim indicated.
+    
+    Parameters:
+        df (pd.DataFrame): The filtered DataFrame to plot.
+    """
+    # Group by the available columns, excluding 'dims' which will be used for coloring the scatter points
+    group_cols = [x for x in ['animal', 'direction', 'highlow', 'rhythm'] if x in df.columns]
+    grouped_df = df.groupby(group_cols)
+    
+    for name, group in grouped_df:
+        plt.figure(figsize=(10, 6))
+        
+        # Create scatter plot
+        plt.scatter(group['mea_coherence'], group['mea_power'], c=group['dims'], cmap='coolwarm')
+        
+        if "optDim_power" in df.columns:
+            # Plot optDim as extra-large black triangles
+            optDim_power = group['optDim_power'].iloc[0]  # Assuming optDim is the same for all rows in the group
+            optDim_coherence = group['optDim_coherence'].iloc[0]
+                
+            plt.scatter(group.loc[group['dims'] == optDim_coherence, 'mea_coherence'], 
+                        group.loc[group['dims'] == optDim_coherence, 'mea_power'], 
+                        color='black', marker='^', s=10, label='optDim Coherence')
+            
+            plt.scatter(group.loc[group['dims'] == optDim_power, 'mea_coherence'], 
+                        group.loc[group['dims'] == optDim_power, 'mea_power'], 
+                        color='black', marker='o', s=10, label='optDim Power')
+    
+    # Add colorbar
+    plt.colorbar(label='Dimensions')
+    
+    plt.xlabel('MEA Coherence')
+    plt.ylabel('MEA Power')
+    plt.title(f"{name}")
+    plt.legend()
+    
+    # Fit a linear regression model and plot the line
+    # Exclude NaN values from the data
+    valid_data = group.dropna(subset=['mea_coherence', 'mea_power'])
+    if len(valid_data) > 1:
+        coef = np.polyfit(valid_data['mea_coherence'], valid_data['mea_power'], 1)
+        poly1d_fn = np.poly1d(coef) 
+        plt.plot(valid_data['mea_coherence'], poly1d_fn(valid_data['mea_coherence']), '--k')
+    
+    plt.show()
+
+
+# ----------
+
+# Pivot the DataFrame to create new columns 'mea_coherence' and 'mea_power'
+pivot_df = df.pivot_table(index=['animal', 'direction', 'highlow', 'rhythm', 'dims', 'iP'],
+                          columns='genH', 
+                          values=['mea', 'optDim'],
+                          aggfunc='mean').reset_index()
+# Rename the MultiIndex columns
+pivot_df.columns = [f"{a}_{b}" if b else a for a, b in pivot_df.columns]
+# Remove unwanted characters like extra quotes and parentheses
+pivot_df.columns = [col.replace("'", "").replace("(", "").replace(")", "").replace(", ", "_") for col in pivot_df.columns]
+# Specifically rename the columns we're interested in
+rename_dict = {
+    'mea_coherence': 'mea_coherence', 
+    'mea_power': 'mea_power',
+    'optDim_coherence': 'optDim_coherence',
+    'optDim_power': 'optDim_power'
+}
+# Remove trailing underscores from index columns
+for col in ['animal', 'direction', 'highlow', 'rhythm', 'dims']:
+    rename_dict[col] = col
+pivot_df.rename(columns=rename_dict, inplace=True)
+pivot_df.head()
+
+
+# Generate all combinations of unique values for relevant fields (excluding 'iP' and 'genH')
+all_combinations = product(
+    pivot_df['animal'].unique(), 
+    pivot_df['direction'].unique(), 
+    pivot_df['highlow'].unique(), 
+    pivot_df['rhythm'].unique()
+)
+all_combinations=list(all_combinations)
+filtered_df = query_dataframe(pivot_df, animal='ER1', direction='hpc-pfc', highlow='high', rhythm='theta')
+plot_coherence_vs_power(filtered_df)
+
+# Loop through each combination
+for animal, direction, highlow, rhythm in tqdm(all_combinations, total=len(all_combinations)):
+    # Query DataFrame based on the combination
+    filtered_df = query_dataframe(pivot_df, animal=animal, direction=direction, highlow=highlow, rhythm=rhythm)
+    
+    # If the filtered DataFrame is not empty, plot it
+    if not filtered_df.empty:
+        plot_coherence_vs_power(filtered_df)
+        plt.savefig(os.path.join(savefolder, f'coherence_vs_power_{animal}_{direction}_{highlow}_{rhythm}.png'), dpi=300)
+        plt.savefig(os.path.join(savefolder, f'coherence_vs_power_{animal}_{direction}_{highlow}_{rhythm}.pdf'))
+        plt.close()
+

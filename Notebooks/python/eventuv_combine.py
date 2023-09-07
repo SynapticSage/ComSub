@@ -11,7 +11,7 @@ intermediate = "midpattern=true"
 directory = f"/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/"
 
 # List of file names
-files = glob(os.path.join(directory, "eventuv*_*.parquet"))
+files = glob(os.path.join(directory, f"eventuv*_{zscore}.parquet"))
 
 # Empty list to hold dataframes
 dfs = []
@@ -56,5 +56,7 @@ def fraction_missing(df):
     sns.heatmap(x.unstack(), cmap="Blues", annot=True, fmt=".1%")
     plt.show()
     plt.savefig(os.path.join(directory, "eventuv_genuine.png"))
+
+fraction_missing(df)
 
 # WARNINGS:

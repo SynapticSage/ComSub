@@ -9,6 +9,7 @@ from tqdm import tqdm
 tqdm.pandas()
 
 match_mode = False
+zscore = True
 intermediate = "midpattern=true"
 figfolder = f"/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/eventuv_python/"
 origin=f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/eventuv.parquet'
@@ -158,6 +159,10 @@ def prep_uv_magnitude_over_time(df_matrix, time='events'):
 
 # Load the provided CSV file
 df = pd.read_parquet(origin)
+if zscore:
+    df.query('zscore == True', inplace=True)
+else:
+    df.query('zscore == False', inplace=True)
 # Print the modificiation time of the origin file as XX-XX-XXXX XX:XX:XX
 import arrow
 print("Origin file last modified on {}".format(arrow.get(os.path.getmtime(origin)).format('MM-DD-YYYY HH:mm:ss')))
@@ -262,14 +267,19 @@ descfield = lambda x: df_clean.groupby(['genH', 'highlow'])[x].describe()
 
 
 # BUG: Subset
-df_clean = df_clean.query('pattern_cca1 == 2') # 1 is hpchpc
+df_clean.query('pattern_cca1 == 2', inplace=True) # 1 is hpchpc
 if match_mode:
     tmp = []
     for i in range(1, int(df_clean.patterns.max())):
-        tmp.append(df_clean.query(f'pattern_cca2 == {i} & patterns == {i}'))
+        tmp.append(df_clean.query(f'pattern_cca2 == {i} & patterns == {i}').copy())
     df_match = pd.concat(tmp)
+    df_match.loc[:,"pattern_cca2"] = 0
+    del tmp
+    df_clean = pd.concat(( df_clean, df_match ), axis=0, ignore_index=True)
+    del df_match
+    df_clean.query(f"pattern_cca2 == 0 | pattern_cca2 == {df_clean.pattern_cca2.max()}", inplace=True)
 else:
-    df_clean = df_clean.query(f'pattern_cca2 == {df_clean.patterns.max()}')
+    df_clean = df_clean.query(f'pattern_cca2 == {df_clean.pattern_cca2.max()}')
 
 
 df_matrix = prep_uv_melt(df_clean)

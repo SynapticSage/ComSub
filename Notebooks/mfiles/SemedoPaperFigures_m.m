@@ -234,12 +234,21 @@ writetable(rt, figuredefine("tables", "rt_zscr="+zscr+".csv"), 'WriteRowNames',t
 disp("Running dimension removal with zscore=" + zscr);
 % plot with grm
 if zscr; figAppend = "zscore"; else; figAppend = ""; end
-plots.grm.dimensionRemoved(rt, "spec", 'figAppend', figAppend);
-plots.grm.dimensionRemoved(rt, "coh", 'figAppend', figAppend);
-plots.grm.dimensionRemoved(rt, "wpli", 'figAppend', figAppend);
+plots.grm.dimensionRemoved(rt, "spec", 'figAppend', figAppend); close all
+plots.grm.dimensionRemoved(rt, "coh", 'figAppend', figAppend); close all
+if ismember("wpli", [Patterns.genH_name])
+    plots.grm.dimensionRemoved(rt, "wpli", 'figAppend', figAppend); close all
+end
 plots.subspace.pred_dim_rem.oneDimesionRemovedClustermap; % changed this:: ask ziyi if she has missing function
 % plots.subspace.pred_dim_rem.plotDimensionRemoval_perPattern; # not used
-plots.subspace.pred_dim_rem.plotDimensionRemoval_perPatternbyDirection; % important
+plots.subspace.pred_dim_rem.plotDimensionRemoval_perPatternbyDirection(rt, 'figAppend', "overall");
+
+% Now let's repeat the plot for theta power, delta power, and ripple power
+for patternType = ["theta", "delta", "ripple"]
+    inds = contains(rt.basePattern, patternType) & contains(rt.removePattern, patternType);
+    rt_tmp = rt(inds, :);
+    plots.subspace.pred_dim_rem.plotDimensionRemoval_perPatternbyDirection(rt_tmp, 'figAppend', "_"+patternType);
+end
 
 %% 
 % Now let's see how similar those curves are in dimension reduced space
