@@ -303,10 +303,10 @@ for i = progress(1:numel(Patterns_overall), 'Title', 'Patterns')
 
     % save to table
     try
-    [t_uv, t_spec] = table.analyses.trigspec(out, [], efizz.f, scalar_info);
-    tablefolder = figuredefine("tables");
-    parquetwrite(fullfile(tablefolder, "triggeredspec_uv"+Opt.figAppend+".parquet"), t_uv);
-    parquetwrite(fullfile(tablefolder, "triggeredspec_spec"+Opt.figAppend+".parquet"), t_spec);
+        [t_uv, t_spec] = table.analyses.trigspec(out, [], efizz.f, scalar_info);
+        tablefolder = figuredefine("tables");
+        parquetwrite(fullfile(tablefolder, "triggeredspec_uv"+Opt.figAppend+".parquet"), t_uv);
+        parquetwrite(fullfile(tablefolder, "triggeredspec_spec"+Opt.figAppend+".parquet"), t_spec);
     catch
         disp("Error writing parquet files for " + name + " direction " + d);
     end

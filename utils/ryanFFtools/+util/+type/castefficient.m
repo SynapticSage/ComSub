@@ -18,11 +18,9 @@ ip.parse(varargin{:});
 Opt = ip.Results;
 
 if iscell(X)
-    for i = 1:numel(X)
+    for i = progress(1:numel(X))
         X{i} = util.type.castefficient(X{i}, varargin{:});
     end
-elseif istable(X)
-    X = util.table.castefficient(X, varargin{:});
 elseif isa(X, 'matlab.io.MatFile')
     fields = fieldnames(X);
     fields = setdiff(fields, {'Properties', 'Writable', 'Filename'});
@@ -31,7 +29,7 @@ elseif isa(X, 'matlab.io.MatFile')
     end
 elseif isstruct(X) && ~isscalar(X)
     if Opt.verbose; disp("...iterating struct"); end
-    for i = 1:numel(X)
+    for i = progress(1:numel(X))
         X(i) = util.type.castefficient(X(i), varargin{:});
     end
 elseif isstruct(X)  && isscalar(X)

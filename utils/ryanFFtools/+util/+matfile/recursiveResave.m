@@ -39,6 +39,7 @@ ip.addParameter('castefficient', true, @islogical); % cast to most efficient typ
 ip.addParameter('castefficient_args', {'compressReals',true}); % cast to most efficient type arguments
 ip.addParameter('lambda', []); % lambda function
 ip.addParameter('lambda_args', {}); % lambda function arguments
+ip.addParameter('afterDate', []);
 ip.parse(varargin{:});
 Opt = ip.Results;
 
@@ -54,16 +55,35 @@ end
 
 regex_mode = any(contains(Opt.exclude, "*"));
 
+if ~isempty(Opt.afterDate)
+    Opt.afterDate = datetime(Opt.afterDate, 'InputFormat', 'MM-dd-yyyy');
+end
+
 try
 
     % Convert all mat files in current folder
     pushd(folder);
     f = onCleanup(@() popd());
     M = dir(search);
+    % Sory by modified date, most recent first
+    [~,idx] = sort([M.datenum],'descend');
+    M = M(idx);
     for m = progress(1:numel(M), 'Title', 'Converting mat files')
+
+        datenum = M(m).datenum;
+        % Convert datenum to text date xx-xx-xxxx
+        datenum = datestr(datenum, 'mm-dd-yyyy');
+        datenum = datetime(datenum, 'InputFormat', 'MM-dd-yyyy');
+        if ~isempty(Opt.afterDate) && datenum < Opt.afterDate
+            disp("...skipping file...");
+            continue;
+        end
         
         filename = M(m).name;
+        disp("");
+        disp("----------------------------------------");
         disp("Checking file " + string(filename));
+        disp("----------------------------------------");
 
         if any(contains(filename,Opt.contain_exclude))
             disp("...skipping file...");

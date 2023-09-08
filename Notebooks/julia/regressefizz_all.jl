@@ -14,6 +14,9 @@ include("/Volumes/MATLAB-Drive/Shared/Notebooks/julia/regess_funcs.jl")
 folder = "/Volumes/MATLAB-Drive/Shared/figures/midpattern=true/data/"
 file = "/Volumes/MATLAB-Drive/Shared/figures/midpattern=true/data/$(animal)_coherence_true.mat";
 overwrite=false;
+trades = [r"phi_cos" => "phi-cos", r"phi_sin" => "phi-sin",
+    r"low_gamma" => "low-gamma", r"mid_gamma" => "mid-gamma", 
+    r"high_gamma" => "high-gamma", r"wpli_avg" => "wpli-avg"]
 
 
 usegpu = false;
@@ -379,14 +382,39 @@ animal = first(animals)
 	    formula = eval(formula_expr)
 	    # md = turing_model(formula, train_data) # linear regression
             # let's use an error more appropriate for lfp
-            md = turing_model(formula, train_data, Gamma()) # linear regression
+            md = turing_model(formula, train_data; model=TDist)
+            # Custom Turing model with Gamma likelihood
+            # Define a logpdf for SkewNormal distribution
+            # function logpdf_skewnormal(x, location, scale, shape)
+            #     z = (x - location) / scale
+            #     return log(2) + logpdf(Normal(0, 1), z) + logcdf(Normal(0, 1), shape * z) - log(scale)
+            # end
+            #
+            # @model function custom_model(y, X)
+            #     # Priors for regression coefficients
+            #     n, p = size(X)
+            #     β ~ filldist(Normal(0, 2.5), p)
+            #     
+            #     # Priors for SkewNormal parameters
+            #     location ~ Normal(0, 2)
+            #     scale ~ Exponential(1)
+            #     shape ~ Normal(0, 1)
+            #     
+            #     # Likelihood with Skewed Normal distribution
+            #     for i in 1:n
+            #         μ = dot(X[i, :], β)
+            #         y[i] ~ logpdf_skewnormal(μ, location, scale, shape)
+            #     end
+            # end
 
 	    tries = 5
 	    while tries > -1
 		try
 		    # advi = ADVI(100, 1000)
 		    # @time global q = vi(md, advi; optimizer=Flux.ADAM(0.1))
-		    @time global chns = sample(md, NUTS(), n_samples)
+		    # @time global chns = sample(md, NUTS(), n_samples)
+                    @time global chns = sample(md, NUTS(), n_samples)
+                    # @time global chns = sample(custom_model(train_data[:, target_col], Matrix(train_data[:, predictors])), NUTS(), n_samples)
 		    # global chns = @async sample(md, NUTS(), MCMCDistributed(),
 		    # n_samples, n_chains; init_theta=init_vals)
 		    chns = fetch(chns)
@@ -466,9 +494,7 @@ animal = first(animals)
 end
 
 
-trades = [r"phi_cos" => "phi-cos", r"phi_sin" => "phi-sin",
-    r"low_gamma" => "low-gamma", r"mid_gamma" => "mid-gamma", 
-    r"high_gamma" => "high-gamma", r"wpli_avg" => "wpli-avg"]
+
 function replace_names(chns; mode=1)
     if mode  == 1
 	existing_names = [nm for nm in names(chns) if occursin("β", string(nm))]

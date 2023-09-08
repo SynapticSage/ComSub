@@ -58,6 +58,7 @@ g.add_legend()
 plt.show()
 plt.savefig(os.path.join(figfolder, 'plot_scatter_eventuv_highlow.png'))
 plt.savefig(os.path.join(figfolder, 'plot_scatter_eventuv_highlow.pdf'))
+plt.close('all')
 
 
 #--------------------
@@ -111,10 +112,10 @@ plt.savefig(os.path.join(figfolder, f'plot_scatter_projperp_hpcpfc.pdf'))
 
 
 # Let's do the above plot, but a kdeplot, sample=10_000
-tmp=df_clean.query('highlow == "high" & pattern_cca1 == 2 & pattern_cca2==10 & uv_components == 1').groupby('genH').sample(5_000)
+tmp=df_clean.query('pattern_cca1 == 2 & pattern_cca2==10 & uv_components == 1').groupby('genH').sample(7_500)
 tmp = qfilt(qfilt(tmp, 'projection_score'), 'perpendicular_score')
 g=sns.FacetGrid(data=tmp, 
-                row="pattern_class_name", col="genH", hue="pattern_class_name")
+                row="pattern_class_name", col="genH_highlow", hue="pattern_class_name")
 g.map(sns.kdeplot, "projection_score", "perpendicular_score", alpha=0.5, shade=True)
 g.map(sns.scatterplot, "projection_score", "perpendicular_score", alpha=0.02)
 g.map(lambda *pos,**kws: plt.axvline(0, color='black', linestyle='--'))
@@ -297,4 +298,61 @@ for pattern_class_name in ['theta', 'delta', 'ripple']:
         plt.savefig(os.path.join(f"{figfolder}", f'power_plot_joint_projperp_hpcpfc_hue=genH_highlow_uvcomp={i}_{pattern_class_name}.png'))
         plt.savefig(os.path.join(f"{figfolder}", f'power_plot_joint_projperp_hpcpfc_hue=genH_highlow_uvcomp={i}_{pattern_class_name}.pdf'))
 
+# Let's do the above plot, but a kdeplot, sample=10_000
+for pattern_class_name in ['theta', 'delta', 'ripple']:
+    tmp=df_clean.query('pattern_cca1 == 2 & pattern_cca2==10 & pattern_class_name == @pattern_class_name').groupby('genH').sample(7_500)
+    tmp = qfilt(qfilt(tmp, 'projection_score'), 'perpendicular_score')
+    colors_half1 = cm.Oranges(np.linspace(0, 1, 3))
+    colors_half2 = cm.Blues(np.linspace(0, 1, 3))
+    pal = sns.color_palette([*colors_half1, *colors_half2])
+    g=sns.FacetGrid(data=tmp, row="animal", hue="genH_highlow", col="genH_highlow",
+                    col_order=['power_low', 'power_mid', 'power_high', 'coherence_low', 'coherence_mid', 'coherence_high'], 
+                    hue_order=['power_low', 'power_mid', 'power_high', 'coherence_low', 'coherence_mid', 'coherence_high'],
+                    palette=pal)
+    g.map(sns.kdeplot, "projection_score", "perpendicular_score", alpha=0.5, shade=True)
+    g.map(sns.scatterplot, "projection_score", "perpendicular_score", alpha=0.02)
+    g.map(lambda *pos,**kws: plt.axvline(0, color='black', linestyle='--'))
+    g.map(lambda *pos,**kws: plt.axhline(0, color='black', linestyle='--'))
+    for ax in g.axes.flat:
+        # find max abs x and max abs y
+        xmax = max(abs(ax.get_xlim()[0]), abs(ax.get_xlim()[1]))
+        ymax = max(abs(ax.get_ylim()[0]), abs(ax.get_ylim()[1]))
+        mx = max(xmax, ymax)
+        ax.set_xlim(-mx, mx)
+        ax.set_ylim(-mx, mx)
+        # Exchange | with \n in title
+        title = ax.get_title().replace('|', '\n')
+        ax.set_title(title)
+    plt.savefig(os.path.join(figfolder, f'{pattern_class_name}_animal_plot_kde_projperp_hpcpfc.png'))
+    plt.savefig(os.path.join(figfolder, f'{pattern_class_name}_animal_plot_kde_projperp_hpcpfc.pdf'))
+
+
+# Let's do the above plot, but a kdeplot, sample=10_000
+for pattern_class_name in ['theta', 'delta', 'ripple']:
+    for comp in range(1,6):
+        tmp=df_clean.query('pattern_cca1 == 2 & pattern_cca2==10 & pattern_class_name == @pattern_class_name & uv_components == @comp').groupby('genH').sample(7_500)
+        tmp = qfilt(qfilt(tmp, 'projection_score'), 'perpendicular_score')
+        colors_half1 = cm.Oranges(np.linspace(0, 1, 3))
+        colors_half2 = cm.Blues(np.linspace(0, 1, 3))
+        pal = sns.color_palette([*colors_half1, *colors_half2])
+        g=sns.FacetGrid(data=tmp, row="animal", hue="genH_highlow", col="genH_highlow",
+                        col_order=['power_low', 'power_mid', 'power_high', 'coherence_low', 'coherence_mid', 'coherence_high'], 
+                        hue_order=['power_low', 'power_mid', 'power_high', 'coherence_low', 'coherence_mid', 'coherence_high'],
+                        palette=pal)
+        g.map(sns.kdeplot, "projection_score", "perpendicular_score", alpha=0.5, shade=True)
+        g.map(sns.scatterplot, "projection_score", "perpendicular_score", alpha=0.02)
+        g.map(lambda *pos,**kws: plt.axvline(0, color='black', linestyle='--'))
+        g.map(lambda *pos,**kws: plt.axhline(0, color='black', linestyle='--'))
+        for ax in g.axes.flat:
+            # find max abs x and max abs y
+            xmax = max(abs(ax.get_xlim()[0]), abs(ax.get_xlim()[1]))
+            ymax = max(abs(ax.get_ylim()[0]), abs(ax.get_ylim()[1]))
+            mx = max(xmax, ymax)
+            ax.set_xlim(-mx, mx)
+            ax.set_ylim(-mx, mx)
+            # Exchange | with \n in title
+            title = ax.get_title().replace('|', '\n')
+            ax.set_title(title)
+        plt.savefig(os.path.join(figfolder, f'{pattern_class_name}_animal_plot_kde_projperp_hpcpfc_comp={comp}.png'))
+        plt.savefig(os.path.join(figfolder, f'{pattern_class_name}_animal_plot_kde_projperp_hpcpfc_comp={comp}.pdf'))
 

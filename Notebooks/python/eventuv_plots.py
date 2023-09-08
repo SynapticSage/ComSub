@@ -12,6 +12,10 @@ match_mode = False
 zscore = True
 intermediate = "midpattern=true"
 figfolder = f"/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/eventuv_python/"
+if zscore == False:
+    figfolder = os.path.join(figfolder, 'zscore=false')
+    if not os.path.exists(figfolder):
+        os.makedirs(figfolder)
 origin=f'/Volumes/MATLAB-Drive/Shared/figures/{intermediate}/tables/eventuv.parquet'
 if not os.path.exists(figfolder):
     os.makedirs(figfolder)
@@ -140,7 +144,7 @@ def prep_uv_magnitude_over_time(df_matrix, time='events'):
     # Setting the new dataframe index back to its original structure
     df_matrix_time = df_matrix_time.set_index([use, 'animal', 'genH', 'genH_highlow', 'highlow', 'patterns'])
     # Define window size
-    window_size = 20
+    window_size = 5
     # Apply rolling mean
     df_matrix['magnitude_u_smooth'] = df_matrix.groupby(['animal', 'genH'])['magnitude_u'].transform(lambda x: x.rolling(window_size).mean())
     df_matrix['magnitude_v_smooth'] = df_matrix.groupby(['animal', 'genH'])['magnitude_v'].transform(lambda x: x.rolling(window_size).mean())
@@ -151,9 +155,13 @@ def prep_uv_magnitude_over_time(df_matrix, time='events'):
     df_matrix['time'] = df_matrix['time'] - df_matrix.groupby('animal')['time'].transform('min')
 
     # Define number of bins
-    num_bins = 100
+    num_bins = 50
     # Bin the event_time data
+    # df_matrix.loc[:'time_bin'] = df_matrix.groupby(['animal', 'genH','epoch'])['time'].transform(lambda x: pd.cut(x, num_bins, labels=range(num_bins)))
     df_matrix['time_bin'] = df_matrix.groupby(['animal', 'genH', 'epoch'])['time'].transform(lambda x: pd.cut(x, num_bins, labels=range(num_bins)))
+    # Assuming df_matrix is your DataFrame with columns 'time_bin', 'epoch', etc.
+    # df_matrix.loc[:,'time_bin'] = df_matrix['time_bin'] * (df_matrix['epoch'] // 2)
+    df_matrix['time_bin'] = df_matrix['time_bin'].astype(int) * (df_matrix['epoch'].astype(int) // 2)
     return df_matrix
 
 

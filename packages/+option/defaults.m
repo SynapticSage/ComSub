@@ -87,6 +87,7 @@ Default.generateH                       = join(["fromSpectra","fromRipTimes"], "
 Default.analysis.run_selected_genH      = false; % 📜 this
 Default.analysis.checks                 = false;  % whether to run checks: FR, singleEvents, H
 Default.analysis.rankRegress            = true;  % rank regression
+Default.ridgeInit                       = true;
 Default.analysis.factorAnalysis         = false; % took too long -- tend to not run this
 Default.analysis.singleNeuronPrediction = false; % single neuron prediction in RRR
 Default.analysis.timeVarying            = false; % rewrite

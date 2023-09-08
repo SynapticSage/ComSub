@@ -84,7 +84,7 @@ M = m( ones(n, 1), : );
 Z = (X - M);
 
 if useRidgeInit
-    C_RIDGE_D_MAX_SHRINKAGE_FACTOR = .2:.01:3
+    C_RIDGE_D_MAX_SHRINKAGE_FACTOR = .2:.01:3;
     lambda = GetRidgeLambda(C_RIDGE_D_MAX_SHRINKAGE_FACTOR, X, ...
         'Scale', scale);
     lambdaOpt = RegressModelSelect(@RidgeRegress, Y, X, lambda, ...

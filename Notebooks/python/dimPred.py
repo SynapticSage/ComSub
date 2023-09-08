@@ -39,6 +39,9 @@ df.loc[:,'rhythm'] = df.name.apply(classify_rhythm)
 df.query('genH != "wpli"', inplace=True)
 df.head()
 
+df.loc[:,"direction_genH_highlow"] = df.direction + "_" + df.genH + "_" + df.highlow
+df.loc[:,"genH_highlow"] = df.genH + "_" + df.highlow
+
 # pairplot to understand
 sns.pairplot(df, vars=['iDataset', 'animal', 'genH', 'highlow', 'rhythm'])
 
@@ -862,3 +865,93 @@ for animal, direction, highlow, rhythm in tqdm(all_combinations, total=len(all_c
         plt.savefig(os.path.join(savefolder, f'coherence_vs_power_{animal}_{direction}_{highlow}_{rhythm}.pdf'))
         plt.close()
 
+
+# ------------------------------
+
+# Function to calculate optDimAlt
+def calculate_optDimAlt_asymptotic(df, accuracy_fraction=0.8):
+    """
+    Calculate the alternative optimal dimension (`optDimAlt`) based on a given fraction of the asymptotic accuracy level.
+    
+    Parameters:
+        df (pd.DataFrame): The DataFrame containing the data.
+        accuracy_fraction (float): The fraction of the asymptotic accuracy level for calculating `optDimAlt`. Default is 0.8 (80%).
+    
+    Returns:
+        pd.DataFrame: A DataFrame with the new `optDimAlt` column.
+    """
+    # Group by the available columns
+    group_cols = [x for x in ['animal', 'direction', 'highlow', 'rhythm', 'genH'] if x in df.columns]
+    grouped_df = df.groupby(group_cols)
+    
+    # Initialize an empty list to store the new rows with optDimAlt
+    new_rows = []
+    
+    for name, group in grouped_df:
+        # Sort by 'dims'
+        group = group.sort_values(by='dims')
+        
+        # Identify the asymptotic accuracy level (i.e., the maximum 'mea' in each group)
+        asymptotic_accuracy = group['mea'].max()
+        
+        # Calculate the desired fraction of the asymptotic accuracy level
+        target_accuracy = accuracy_fraction * asymptotic_accuracy
+        
+        # Find the 'dims' where 'mea' reaches or exceeds the target accuracy
+        optDimAlt = group[group['mea'] >= target_accuracy]['dims'].min()
+        group['optDimAlt'] = optDimAlt
+        
+        new_rows.append(group)
+    
+    # Concatenate the new rows into a new DataFrame
+    new_df = pd.concat(new_rows, ignore_index=True)
+    
+    return new_df
+
+# Calculate optDimAlt with an accuracy fraction of 80%
+df = calculate_optDimAlt_asymptotic(df, accuracy_fraction=0.90)
+df.head()
+
+def calculate_fractional_dimension(df, dimension_field):
+    """
+    Calculate the fractional dimension based on the highest available dimension in each group.
+
+    Parameters:
+        df (pd.DataFrame): The DataFrame containing the data.
+        dimension_field (str): The name of the dimension field to be used for calculating the fractional dimension.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the new fractional dimension column.
+    """
+    # Group by the available columns, excluding the dimension_field
+    group_cols = [x for x in ['animal', 'direction', 'highlow', 'rhythm', 'genH'] if x in df.columns]
+    grouped_df = df.groupby(group_cols)
+    
+    # Initialize an empty list to store the new rows with fractional dimension
+    new_rows = []
+    
+    for name, group in grouped_df:
+        # Find the highest available dimension in the group
+        highest_dimension = group[dimension_field].max()
+        
+        # Calculate the fractional dimension
+        group[f'frac{dimension_field}'] = group[dimension_field] / highest_dimension
+        
+        new_rows.append(group)
+    
+    # Concatenate the new rows into a new DataFrame
+    new_df = pd.concat(new_rows, ignore_index=True)
+    
+    return new_df
+
+# Calculate the fractional dimension based on 'dims'
+df = calculate_fractional_dimension(df, 'optDim')
+df = calculate_fractional_dimension(df, 'optDimAlt')
+df.head()
+
+dfp = df.pivot_table(index=['animal', 'direction', 'highlow', 'rhythm', 'iP', 'direction_genH_highlow'],
+                     values=['mea', 'fracoptDim', 'fracoptDimAlt'],
+                     aggfunc='mean').reset_index()
+dfp.head()
+
+sns.catplot(dfp, col="rhythm", x="direction_genH_highlow", y="fracoptDim", kind="box", height=4, aspect=.7, hue="highlow")

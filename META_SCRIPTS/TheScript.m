@@ -1,4 +1,3 @@
-
 % ========================================
 % ---- PATH -----
 % Matlab uses startup.m to run startup code...
@@ -134,8 +133,15 @@ if Option.analysis.rankRegress % 
     % TODO: 
     % 1. fix Option.rankregress => Option.rankRegress                 
     % 2. most rankRegress.B_ are empty                                
+    % delete(gcp('nocreate'))
+    % if parpool not open
+    if isempty(gcp('nocreate'))
+        myCluster = parcluster();
+        myCluster.NumWorkers = 16;
+        parpool(myCluster, myCluster.NumWorkers);
+    end
     Patterns         = analysis.rankRegress(Patterns, Option, 'verbose', true);        
-    Patterns_overall = analysis.rankRegress(Patterns_overall, Option);
+    % Patterns_overall = analysis.rankRegress(Patterns_overall, Option);
 end
 
 if Option.analysis.factorAnalysis % 󰍉

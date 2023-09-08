@@ -197,6 +197,8 @@ def corrected_ci_barplot_v3(df, groups, hue, row=None, col=None, field=None):
 
 # ry- changed df_matrix to df_clean
 
+df_matrix['magnitude_u'] = np.sqrt(np.sum(df_matrix[[f"{i}.0_u" for i in range(1, 6)]], axis=1))
+df_matrix['magnitude_v'] = np.sqrt(np.sum(df_matrix[[f"{i}.0_v" for i in range(1, 6)]], axis=1))
 df_matrix['magnitude_r'] = np.sqrt(df_matrix['magnitude_u'] ** 2 + df_matrix['magnitude_v'] ** 2)
 df_matrix['on_r_commsub'] = (df_matrix['magnitude_u'] + df_matrix['magnitude_v']) / np.sqrt(2)
 df_matrix['off_r_commsub'] = (df_matrix['magnitude_u'] - df_matrix['magnitude_v']) / np.sqrt(2)
@@ -215,7 +217,8 @@ for field in ['magnitude_u', 'magnitude_v', 'magnitude_r', 'on_r_commsub', 'off_
     boot_stats, boot_cis = bootstrap_statistics(df_matrix, ['epoch', 'highlow', 'highlow_genH', 'genH_highlow', 'genH'], field, 'mean', n_boot=1000, ci=95)
     corrected_ci_barplot_v3(boot_stats, ['epoch', 'highlow', 'genH'], 'highlow', 'genH', field=field)
     plt.savefig(os.path.join(figfolder,f'{field}_genH_overtime_hue=highlow_row=genH.png'), dpi=300)
-    plt.savefig(os.path.join(figfolder,f'{field}_genH_overtime_hue=highlow_row=genH.pdf'), dpi=300)
+    plt.savefig(os.path.join(figfolder,f'{field}_genH_overtime_hue=highlow_row=genH.pdf'))
+    plt.close('all')
 
 for i in range(1, 3):
     for field in [f"{i}.0_u", f"{i}.0_v", f"r_{i}.0", f"p_{i}.0", f"r_over_p_{i}.0", f"r_{i}.0_abs", f"p_{i}.0_abs"]:
@@ -224,4 +227,5 @@ for i in range(1, 3):
         corrected_ci_barplot_v3(boot_stats, ['epoch', 'highlow', 'genH'], 'highlow', 'genH', field=field)
         plt.savefig(os.path.join(figfolder,f'{i}_{field}_genH_overtime_hue=highlow_row=genH.png'), dpi=300)
         plt.savefig(os.path.join(figfolder,f'{i}_{field}_genH_overtime_hue=highlow_row=genH.pdf'))
+plt.close('all')
 
